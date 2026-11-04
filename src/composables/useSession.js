@@ -66,6 +66,60 @@ export function buildSeries(records) {
   return { paso, watts, rpm, marcha: marcha.some((g) => g !== null) ? marcha : [] }
 }
 
+function computeStats(list) {
+  if (!list.length) return { avgWatts: 0, maxWatts: 0, avgRpm: 0, avgGear: null, maxGear: null }
+  let sumW = 0
+  let sumR = 0
+  let maxW = 0
+  let sumG = 0
+  let nG = 0
+  let maxG = null
+  for (const r of list) {
+    sumW += r.watts
+    sumR += r.rpm
+    if (r.watts > maxW) maxW = r.watts
+    if (r.marcha !== undefined) {
+      sumG += r.marcha
+      nG++
+      if (maxG === null || r.marcha > maxG) maxG = r.marcha
+    }
+  }
+  return {
+    avgWatts: Math.round(sumW / list.length),
+    maxWatts: maxW,
+    avgRpm: Math.round(sumR / list.length),
+    avgGear: nG ? Math.round((sumG / nG) * 10) / 10 : null,
+    maxGear: maxG,
+  }
+}
+
+function buildSummary(data, startMs, wallSeconds, fileName) {
+  const stats = computeStats(data)
+  // Manda la consola: tiempo, calorías y distancia son los que marcaba, aunque se empezara a grabar
+  // tarde o hubiera que reconectar. Se toma su mayor tiempo por si se reinició antes de finalizar.
+  const peak = data.reduce((best, r) => ((r.tiempoBici ?? -1) >= (best.tiempoBici ?? -1) ? r : best))
+  return {
+    id: `${startMs}`,
+    fecha: new Date(startMs).toISOString(),
+    duracionSeg: peak.tiempoBici ?? wallSeconds,
+    wattsPromedio: stats.avgWatts,
+    wattsMax: stats.maxWatts,
+    rpmPromedio: stats.avgRpm,
+    marchaPromedio: stats.avgGear,
+    marchaMax: stats.maxGear,
+    calorias: peak.calorias ?? null,
+    distanciaKm: peak.distanciaKm ?? null,
+    muestras: data.length,
+    archivo: fileName,
+    serie: buildSeries(data),
+  }
+}
+
+const isSessionData = (data) =>
+  Array.isArray(data) &&
+  data.length > 0 &&
+  data.every((r) => Number.isFinite(Date.parse(r?.timestamp)) && Number.isFinite(r.watts) && Number.isFinite(r.rpm))
+
 /**
  * Graba una muestra por segundo a partir de los refs de la bicicleta:
  * { timestamp, watts, rpm } y, si la fuente los envía, tiempoBici, marcha, calorias, distanciaKm.
@@ -80,33 +134,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
 
   let timer = null
 
-  const liveStats = computed(() => {
-    const list = records.value
-    if (!list.length) return { avgWatts: 0, maxWatts: 0, avgRpm: 0, avgGear: null, maxGear: null }
-    let sumW = 0
-    let sumR = 0
-    let maxW = 0
-    let sumG = 0
-    let nG = 0
-    let maxG = null
-    for (const r of list) {
-      sumW += r.watts
-      sumR += r.rpm
-      if (r.watts > maxW) maxW = r.watts
-      if (r.marcha !== undefined) {
-        sumG += r.marcha
-        nG++
-        if (maxG === null || r.marcha > maxG) maxG = r.marcha
-      }
-    }
-    return {
-      avgWatts: Math.round(sumW / list.length),
-      maxWatts: maxW,
-      avgRpm: Math.round(sumR / list.length),
-      avgGear: nG ? Math.round((sumG / nG) * 10) / 10 : null,
-      maxGear: maxG,
-    }
-  })
+  const liveStats = computed(() => computeStats(records.value))
 
   function sample() {
     const record = {
@@ -144,37 +172,58 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
       return null
     }
 
-    const start = new Date(startedAt.value)
-    const fileName = fileNameFor(start)
+    const fileName = fileNameFor(new Date(startedAt.value))
     downloadJson(data, fileName)
 
-    const stats = liveStats.value
     const wallSeconds = Math.round((Date.now() - startedAt.value) / 1000)
-    // Manda la consola: tiempo, calorías y distancia son los que marcaba, aunque se empezara a grabar
-    // tarde o hubiera que reconectar. Se toma su mayor tiempo por si se reinició antes de finalizar.
-    const peak = data.reduce((best, r) => ((r.tiempoBici ?? -1) >= (best.tiempoBici ?? -1) ? r : best))
-
-    const summary = {
-      id: `${startedAt.value}`,
-      fecha: start.toISOString(),
-      duracionSeg: peak.tiempoBici ?? wallSeconds,
-      wattsPromedio: stats.avgWatts,
-      wattsMax: stats.maxWatts,
-      rpmPromedio: stats.avgRpm,
-      marchaPromedio: stats.avgGear,
-      marchaMax: stats.maxGear,
-      calorias: peak.calorias ?? null,
-      distanciaKm: peak.distanciaKm ?? null,
-      muestras: data.length,
-      archivo: fileName,
-      serie: buildSeries(data),
-    }
+    const summary = buildSummary(data, startedAt.value, wallSeconds, fileName)
 
     history.value = [summary, ...history.value]
     notice.value = saveHistory(history.value)
       ? `Sesión guardada y exportada como ${fileName}.`
       : `Se exportó ${fileName}, pero no se pudo guardar el resumen en localStorage.`
     return summary
+  }
+
+  /** Carga archivos exportados. Si la sesión ya estaba, se reemplaza por lo que calcula el archivo. */
+  async function importFiles(files) {
+    const list = [...history.value]
+    let added = 0
+    let updated = 0
+    const failed = []
+    for (const file of files) {
+      let data = null
+      try {
+        data = JSON.parse(await file.text())
+      } catch {
+        // se informa abajo, junto con los archivos que no son sesiones
+      }
+      if (!isSessionData(data)) {
+        failed.push(file.name)
+        continue
+      }
+      const startMs = Date.parse(data[0].timestamp)
+      const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - startMs) / 1000) + 1
+      const summary = buildSummary(data, startMs, wallSeconds, file.name)
+      // Al grabar, la fecha es la de inicio y la primera muestra llega un segundo después.
+      const i = list.findIndex((s) => Math.abs(Date.parse(s.fecha) - startMs) < 5000)
+      if (i >= 0) {
+        list[i] = summary
+        updated++
+      } else {
+        list.push(summary)
+        added++
+      }
+    }
+    list.sort((a, b) => Date.parse(b.fecha) - Date.parse(a.fecha))
+    history.value = list
+    const saved = saveHistory(list)
+    const parts = []
+    if (added) parts.push(`${added} ${added === 1 ? 'sesión cargada' : 'sesiones cargadas'}`)
+    if (updated) parts.push(`${updated} ${updated === 1 ? 'sesión actualizada' : 'sesiones actualizadas'}`)
+    if (failed.length) parts.push(`no son sesiones válidas: ${failed.join(', ')}`)
+    if (!saved) parts.push('no se pudo guardar en localStorage')
+    notice.value = `${parts.join(' · ')}.`
   }
 
   function deleteSession(id) {
@@ -210,6 +259,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     notice,
     start,
     finish,
+    importFiles,
     deleteSession,
     clearHistory,
   }

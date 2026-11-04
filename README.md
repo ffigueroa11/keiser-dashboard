@@ -60,6 +60,8 @@ siempre el mismo puerto (5173) para no perder lo guardado.
   en **Historial** (con gráfico de potencia y resistencia, y tiempo por marcha). Tiempo, calorías y
   distancia son los que marca la consola, aunque empieces a grabar tarde o reconectes; los promedios
   y el gráfico cubren solo lo grabado.
+- **Historial → Importar sesiones**: carga uno o varios `.json` exportados, por ejemplo en otro
+  equipo. Si la sesión ya estaba, se actualiza con lo que calcula el archivo.
 - **Rodar → Rutas y paseo libre**: paseo libre (la marcha fija la pendiente) o rutas con perfil de elevación;
   importa GPX con **+ Importar GPX** (en **Rodar → Rutas y paseo libre**). En rutas, vista **3D** o **2D**, calidad y paisaje:
   - **Real · Sentinel-2**: gratis, resolución ~10 m.

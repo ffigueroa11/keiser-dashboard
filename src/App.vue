@@ -82,6 +82,11 @@ function finishSession() {
   session.finish()
 }
 
+async function importSessions(event) {
+  await session.importFiles([...event.target.files])
+  event.target.value = '' // permite volver a elegir el mismo archivo
+}
+
 function clearHistory() {
   if (confirm('¿Borrar todo el historial de sesiones guardado en este navegador?')) session.clearHistory()
 }
@@ -276,12 +281,18 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
     <section v-if="tab === 'history'" class="rounded-2xl border border-zinc-800 bg-zinc-900/60">
       <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Sesiones anteriores</h2>
-        <button v-if="history.length" class="text-xs text-zinc-500 hover:text-red-400" @click="clearHistory">
-          Borrar historial
-        </button>
+        <div class="flex items-center gap-4">
+          <button v-if="history.length" class="text-xs text-zinc-500 hover:text-red-400" @click="clearHistory">
+            Borrar historial
+          </button>
+          <label class="btn cursor-pointer bg-zinc-800 text-zinc-100 hover:bg-zinc-700 focus-within:ring-2 focus-within:ring-sky-400">
+            Importar sesiones
+            <input type="file" accept=".json,application/json" multiple class="sr-only" @change="importSessions" />
+          </label>
+        </div>
       </div>
       <p v-if="!history.length" class="px-5 py-10 text-center text-sm text-zinc-500">
-        Aún no hay sesiones guardadas. Finaliza una sesión para verla aquí.
+        Aún no hay sesiones guardadas. Finaliza una sesión o importa tus archivos sesion-keiser-….json.
       </p>
       <div v-else class="overflow-x-auto">
         <table class="tabular w-full text-sm">
