@@ -4,6 +4,8 @@ Vue 3 (`<script setup>`) + Tailwind CSS v4 + Vite + Three.js. Lee la Keiser M3i 
 graba la sesión a 1 Hz, exporta un `.json`, guarda un historial con gráficos y ofrece rutas
 virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX).
 
+**Usar la app sin instalar nada:** https://ffigueroa11.github.io/keiser-dashboard/
+
 ## Requisitos
 
 - Google Chrome o Microsoft Edge de escritorio (Safari y Firefox no tienen Web Bluetooth).
@@ -62,7 +64,7 @@ siempre el mismo puerto (5173) para no perder lo guardado.
   importa GPX con **+ Importar GPX** (en **Rodar → Rutas y paseo libre**). En rutas, vista **3D** o **2D**, calidad y paisaje:
   - **Real · Sentinel-2**: gratis, resolución ~10 m.
   - **Real · MapTiler / Esri**: imagen nítida (~1 m) cerca del camino, cargada por etapas;
-    requiere tu API key (en MapTiler, restringida al origen `localhost`).
+    requiere tu API key (en MapTiler, restringida a `localhost` y `ffigueroa11.github.io`).
 
 ## Videos de YouTube
 

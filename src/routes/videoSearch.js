@@ -36,8 +36,8 @@ const API_ERRORS = {
   quotaExceeded: 'Se acabó la cuota diaria de búsquedas de YouTube. Se renueva mañana; mientras tanto, usa tu lista.',
   dailyLimitExceeded: 'Se acabó la cuota diaria de búsquedas de YouTube. Se renueva mañana; mientras tanto, usa tu lista.',
   rateLimitExceeded: 'Se acabó la cuota diaria de búsquedas de YouTube. Se renueva mañana; mientras tanto, usa tu lista.',
-  ipRefererBlocked: 'La clave de YouTube no permite este sitio. Agrega http://localhost/* en sus restricciones.',
-  refererNotAllowedMapsApi: 'La clave de YouTube no permite este sitio. Agrega http://localhost/* en sus restricciones.',
+  ipRefererBlocked: `La clave de YouTube no permite este sitio. Agrega ${location.origin}/* en sus restricciones.`,
+  refererNotAllowedMapsApi: `La clave de YouTube no permite este sitio. Agrega ${location.origin}/* en sus restricciones.`,
   accessNotConfigured: 'Falta activar "YouTube Data API v3" en el proyecto de tu clave.',
   forbidden: 'YouTube rechazó la clave. Revisa que tenga activada "YouTube Data API v3".',
 }

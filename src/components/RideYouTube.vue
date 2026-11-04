@@ -66,7 +66,7 @@ const ERRORS = {
   // YouTube usa estos códigos también para videos que no existen.
   101: 'Este video no existe o su autor no permite reproducirlo fuera de YouTube. Prueba con otro.',
   150: 'Este video no existe o su autor no permite reproducirlo fuera de YouTube. Prueba con otro.',
-  153: 'YouTube rechazó la reproducción porque no recibió el origen de la página. Abre la app desde http://localhost.',
+  153: 'YouTube rechazó la reproducción porque no recibió el origen de la página. Abre la app desde su dirección http://localhost o https://.',
 }
 
 let player = null

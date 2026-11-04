@@ -82,7 +82,7 @@ watch(imageryKeys, (k) => {
   }
 })
 const KEY_HELP = {
-  maptiler: 'Cuenta gratuita en maptiler.com → Account → API keys. Conviene restringirla a http://localhost.',
+  maptiler: `Cuenta gratuita en maptiler.com → Account → API keys. Conviene restringirla al sitio donde usas la app (${location.origin}).`,
   esri: 'Cuenta gratuita de ArcGIS Location Platform → API key con acceso a basemaps.',
 }
 const needsKey = computed(() => settings.landscape === 'maptiler' || settings.landscape === 'esri')

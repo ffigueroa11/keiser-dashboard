@@ -305,7 +305,7 @@ const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyl
             <div class="mt-2 space-y-2">
               <p>
                 Para buscar en todo YouTube se necesita una clave gratuita: en console.cloud.google.com crea un proyecto,
-                activa "YouTube Data API v3" y crea una clave de API. Conviene restringirla a http://localhost/*. Sin clave,
+                activa "YouTube Data API v3" y crea una clave de API. Conviene restringirla al sitio donde usas la app. Sin clave,
                 solo se elige entre tu lista. La clave queda solo en este navegador.
               </p>
               <input
