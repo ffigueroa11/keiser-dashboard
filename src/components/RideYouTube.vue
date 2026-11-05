@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { updateWebVideo } from '../routes/webVideos'
+import { zoneFor } from '../heartZones'
 
 /**
  * Video de YouTube sincronizado con la simulación de RideScene. Usa el reproductor oficial: nada se
@@ -15,6 +16,7 @@ const props = defineProps({
   gear: { type: Number, default: null },
   grade: { type: Number, default: 0 },
   effort: { type: String, default: '' },
+  heartRate: { type: Number, default: null },
 })
 const emit = defineEmits(['meta', 'unavailable'])
 
@@ -34,6 +36,7 @@ const ended = ref(false)
 const waiting = ref(false) // sin pedaleo: el video espera en pausa
 const cfg = reactive({ inicioSeg: props.video.inicioSeg })
 
+const hrZone = computed(() => zoneFor(props.heartRate))
 const watchUrl = computed(() => `https://www.youtube.com/watch?v=${props.video.videoId}`)
 const startSec = computed(() => Math.max(0, Number(cfg.inicioSeg) || 0))
 
@@ -187,6 +190,10 @@ onBeforeUnmount(() => {
         <div class="chip"><strong>{{ (sim.v * 3.6).toFixed(1) }}</strong> km/h</div>
         <div class="chip"><strong>{{ watts }}</strong> W</div>
         <div class="chip"><strong>{{ rpm }}</strong> rpm</div>
+        <div v-if="hrZone" class="chip">
+          <span class="text-rose-400">♥</span> <strong>{{ heartRate }}</strong> lpm
+          <strong :class="hrZone.text">Z{{ hrZone.n }} {{ hrZone.nombre }}</strong>
+        </div>
         <div v-if="gear !== null" class="chip">marcha <strong>{{ gear }}</strong></div>
         <div class="chip"><strong>{{ grade.toFixed(1) }}</strong> % virtual</div>
         <div v-if="effort" class="chip">{{ effort }}</div>

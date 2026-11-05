@@ -115,6 +115,8 @@ export function parseKeiserAdvertisement(dv) {
     realtime: dataType < 128,
     equipmentId: dv.getUint8(o + 3),
     rpm: Math.round(dv.getUint16(o + 4, true) / 10),
+    // 0 si la consola no recibe pulso de ninguna banda.
+    heartRate: Math.round(dv.getUint16(o + 6, true) / 10),
     watts: dv.getUint16(o + 8, true),
     calories: dv.getUint16(o + 10, true),
     consoleSeconds: dv.byteLength >= o + 14 ? dv.getUint8(o + 12) * 60 + dv.getUint8(o + 13) : null,
@@ -168,6 +170,8 @@ export function useBike() {
   const gear = ref(null)
   const calories = ref(null)
   const distanceKm = ref(null)
+  // Pulso que informa la consola Keiser (solo anuncios BLE); null si no informa ninguno.
+  const heartRate = ref(null)
 
   const isBluetoothSupported = typeof navigator !== 'undefined' && !!navigator.bluetooth
   const isLive = computed(() => mode.value === 'bluetooth' || mode.value === 'simulator')
@@ -194,6 +198,7 @@ export function useBike() {
       if (mode.value === 'bluetooth' && Date.now() - lastDataAt > staleMs) {
         watts.value = 0
         rpm.value = 0
+        heartRate.value = null // sin señal, el pulso de la consola no debe quedar congelado
       }
     }, 1000)
   }
@@ -237,6 +242,7 @@ export function useBike() {
       calories.value = d.calories
       distanceKm.value = d.distanceKm
       gear.value = d.gear
+      heartRate.value = d.heartRate > 0 ? d.heartRate : null
     }
     let abort = null
     const startWatch = async () => {
@@ -463,6 +469,7 @@ export function useBike() {
     gear.value = null
     calories.value = null
     distanceKm.value = null
+    heartRate.value = null
     if (device) {
       device.removeEventListener('gattserverdisconnected', onDisconnected)
       cleanupSubscriptions()
@@ -491,6 +498,7 @@ export function useBike() {
     gear,
     calories,
     distanceKm,
+    heartRate,
     isLive,
     isBluetoothSupported,
     connect,

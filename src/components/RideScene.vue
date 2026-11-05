@@ -5,6 +5,7 @@ import RouteProfile from './RouteProfile.vue'
 import RideVideo from './RideVideo.vue'
 import RideYouTube from './RideYouTube.vue'
 import { BARS, BB, FRONT, HEAD_TUBE, REAR, SEAT, computePose } from '../ride/pose'
+import { zoneFor } from '../heartZones'
 
 // Three.js pesa ~0.5 MB: la vista 3D se carga solo cuando se usa.
 const Ride3D = defineAsyncComponent(() => import('./Ride3D.vue'))
@@ -21,6 +22,7 @@ const props = defineProps({
   watts: { type: Number, default: 0 },
   rpm: { type: Number, default: 0 },
   gear: { type: Number, default: null },
+  heartRate: { type: Number, default: null },
   route: { type: Object, default: null },
   webVideo: { type: Object, default: null },
 })
@@ -88,6 +90,7 @@ const KEY_HELP = {
 const needsKey = computed(() => settings.landscape === 'maptiler' || settings.landscape === 'esri')
 
 const pedaling = computed(() => props.rpm > 0)
+const hrZone = computed(() => zoneFor(props.heartRate))
 
 const routeLen = computed(() => (props.route ? routeLength(props.route) : 0))
 
@@ -227,10 +230,19 @@ function resetDistance() {
 <template>
   <div class="space-y-4">
     <!-- Indicadores (en los modos de video ya van junto al video) -->
-    <div v-if="!webVideo && !(route && view === 'video')" class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div
+      v-if="!webVideo && !(route && view === 'video')"
+      class="grid grid-cols-2 gap-3"
+      :class="hrZone ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-5'"
+    >
       <div class="hud">
         <span class="hud-label">Velocidad</span>
         <span class="hud-value">{{ speedKmh.toFixed(1) }} <small>km/h</small></span>
+      </div>
+      <div v-if="hrZone" class="hud">
+        <span class="hud-label">Pulso</span>
+        <span class="hud-value text-rose-400">{{ heartRate }} <small>lpm</small></span>
+        <span class="mt-0.5 text-xs font-semibold" :class="hrZone.text">Z{{ hrZone.n }} · {{ hrZone.nombre }}</span>
       </div>
       <div class="hud">
         <span class="hud-label">{{ route ? 'Pendiente' : 'Pendiente virtual' }}</span>
@@ -285,6 +297,7 @@ function resetDistance() {
       :rpm="rpm"
       :gear="gear"
       :grade="gradePct"
+      :heart-rate="heartRate"
       @meta="emit('video-meta', $event)"
       @unavailable="emit('video-unavailable')"
     />
@@ -296,6 +309,7 @@ function resetDistance() {
       :rpm="rpm"
       :gear="gear"
       :grade="gradePct"
+      :heart-rate="heartRate"
     />
     <Ride3D
       v-else-if="route && view === '3d'"

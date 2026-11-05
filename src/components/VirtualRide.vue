@@ -39,6 +39,7 @@ defineProps({
   watts: { type: Number, default: 0 },
   rpm: { type: Number, default: 0 },
   gear: { type: Number, default: null },
+  heartRate: { type: Number, default: null },
 })
 
 const MAX_AUTO_SKIPS = 5
@@ -470,6 +471,7 @@ const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyl
         :watts="watts"
         :rpm="rpm"
         :gear="gear"
+        :heart-rate="heartRate"
         :route="selected"
         :web-video="selectedVideo"
         @finish="onFinish"

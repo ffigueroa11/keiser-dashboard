@@ -50,30 +50,44 @@ export function formatDuration(totalSeconds) {
 
 /**
  * Reduce las muestras a como máximo MAX_SERIES_POINTS tramos de `paso` segundos:
- * potencia y cadencia promediadas, marcha = última del tramo.
+ * potencia, cadencia y pulso promediados, marcha = última del tramo.
  */
 export function buildSeries(records) {
   const paso = Math.max(1, Math.ceil(records.length / MAX_SERIES_POINTS))
   const watts = []
   const rpm = []
   const marcha = []
+  const pulso = []
   for (let i = 0; i < records.length; i += paso) {
     const chunk = records.slice(i, i + paso)
     watts.push(Math.round(chunk.reduce((s, r) => s + r.watts, 0) / chunk.length))
     rpm.push(Math.round(chunk.reduce((s, r) => s + r.rpm, 0) / chunk.length))
     marcha.push(chunk.findLast((r) => r.marcha !== undefined)?.marcha ?? null)
+    const hr = chunk.filter((r) => r.pulso !== undefined)
+    pulso.push(hr.length ? Math.round(hr.reduce((s, r) => s + r.pulso, 0) / hr.length) : null)
   }
-  return { paso, watts, rpm, marcha: marcha.some((g) => g !== null) ? marcha : [] }
+  return {
+    paso,
+    watts,
+    rpm,
+    marcha: marcha.some((g) => g !== null) ? marcha : [],
+    pulso: pulso.some((h) => h !== null) ? pulso : [],
+  }
 }
 
 function computeStats(list) {
-  if (!list.length) return { avgWatts: 0, maxWatts: 0, avgRpm: 0, avgGear: null, maxGear: null }
+  if (!list.length) {
+    return { avgWatts: 0, maxWatts: 0, avgRpm: 0, avgGear: null, maxGear: null, avgHr: null, maxHr: null }
+  }
   let sumW = 0
   let sumR = 0
   let maxW = 0
   let sumG = 0
   let nG = 0
   let maxG = null
+  let sumH = 0
+  let nH = 0
+  let maxH = null
   for (const r of list) {
     sumW += r.watts
     sumR += r.rpm
@@ -83,6 +97,11 @@ function computeStats(list) {
       nG++
       if (maxG === null || r.marcha > maxG) maxG = r.marcha
     }
+    if (r.pulso !== undefined) {
+      sumH += r.pulso
+      nH++
+      if (maxH === null || r.pulso > maxH) maxH = r.pulso
+    }
   }
   return {
     avgWatts: Math.round(sumW / list.length),
@@ -90,6 +109,8 @@ function computeStats(list) {
     avgRpm: Math.round(sumR / list.length),
     avgGear: nG ? Math.round((sumG / nG) * 10) / 10 : null,
     maxGear: maxG,
+    avgHr: nH ? Math.round(sumH / nH) : null,
+    maxHr: maxH,
   }
 }
 
@@ -107,6 +128,8 @@ function buildSummary(data, startMs, wallSeconds, fileName) {
     rpmPromedio: stats.avgRpm,
     marchaPromedio: stats.avgGear,
     marchaMax: stats.maxGear,
+    pulsoPromedio: stats.avgHr,
+    pulsoMax: stats.maxHr,
     calorias: peak.calorias ?? null,
     distanciaKm: peak.distanciaKm ?? null,
     muestras: data.length,
@@ -122,9 +145,10 @@ const isSessionData = (data) =>
 
 /**
  * Graba una muestra por segundo a partir de los refs de la bicicleta:
- * { timestamp, watts, rpm } y, si la fuente los envía, tiempoBici, marcha, calorias, distanciaKm.
+ * { timestamp, watts, rpm } y, si la fuente los envía, tiempoBici, marcha, calorias, distanciaKm
+ * y pulso (Apple Watch u otro sensor de pulso, o la consola Keiser).
  */
-export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm }) {
+export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm, heartRate }) {
   const records = ref([])
   const isRecording = ref(false)
   const startedAt = ref(null)
@@ -146,6 +170,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     if (gear.value !== null) record.marcha = gear.value
     if (calories.value !== null) record.calorias = calories.value
     if (distanceKm.value !== null) record.distanciaKm = distanceKm.value
+    if (heartRate?.value != null) record.pulso = heartRate.value
     records.value.push(record)
     elapsedSeconds.value = Math.round((Date.now() - startedAt.value) / 1000)
   }

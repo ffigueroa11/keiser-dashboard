@@ -1,7 +1,9 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useBike } from './composables/useBike'
+import { useHeartRate } from './composables/useHeartRate'
 import { useSession, formatDuration, buildSeries } from './composables/useSession'
+import { ZONES, hrMax, isValidHrMax, zoneFor, zoneRanges } from './heartZones'
 import SessionChart from './components/SessionChart.vue'
 import VirtualRide from './components/VirtualRide.vue'
 
@@ -19,10 +21,46 @@ const {
   gear,
   calories,
   distanceKm,
+  heartRate: bikeHeartRate,
   isLive,
   isBluetoothSupported,
 } = bike
-const session = useSession({ watts, rpm, bikeSeconds: consoleSeconds, gear, calories, distanceKm })
+
+// Pulso por Bluetooth: Apple Watch (con una app que lo transmite, como HeartCast) o banda de pecho.
+const heart = useHeartRate()
+const { bpm: sensorBpm, mode: hrMode, deviceName: hrName, error: hrError } = heart
+
+// Pulso que se muestra y graba: el del sensor conectado y, si no hay, el que informe la consola Keiser.
+const heartRate = computed(() => sensorBpm.value ?? bikeHeartRate.value)
+const heartSource = computed(() => {
+  if (sensorBpm.value !== null) return hrName.value
+  if (bikeHeartRate.value !== null) return 'consola Keiser'
+  return ''
+})
+const hrLabel = computed(() => {
+  if (hrMode.value === 'connecting') return 'Conectando pulso…'
+  if (hrMode.value === 'reconnecting') return 'Reconectando pulso…'
+  return sensorBpm.value !== null ? `${sensorBpm.value} lpm` : 'Sin pulso'
+})
+
+// Zonas de pulso según el pulso máximo configurado (se guarda en este navegador).
+function applyHrMax(event) {
+  const value = Math.round(Number(event.target.value))
+  if (isValidHrMax(value)) hrMax.value = value
+  event.target.value = hrMax.value // un valor no válido vuelve al que sigue en uso
+}
+const currentZone = computed(() => zoneFor(heartRate.value, hrMax.value))
+const zoneTable = computed(() => zoneRanges(hrMax.value))
+
+const session = useSession({
+  watts,
+  rpm,
+  bikeSeconds: consoleSeconds,
+  gear,
+  calories,
+  distanceKm,
+  heartRate,
+})
 const { isRecording, elapsedSeconds, liveStats, history, notice, records } = session
 
 const tab = ref('ride')
@@ -30,6 +68,15 @@ const tab = ref('ride')
 const rideOpened = ref(true)
 watch(tab, (t) => {
   if (t === 'ride') rideOpened.value = true
+})
+
+// El pulso simulado acompaña al simulador de la bicicleta y se detiene con él.
+function startSimulator() {
+  bike.startSimulator()
+  if (hrMode.value === 'idle') heart.startSimulator(watts)
+}
+watch(mode, (m) => {
+  if (m !== 'simulator' && hrMode.value === 'simulator') heart.disconnect()
 })
 
 // Con la Keiser (anuncios BLE) son normales los huecos de hasta ~6 s: solo se avisa pasado ese margen.
@@ -96,7 +143,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
 </script>
 
 <template>
-  <!-- Barra superior: secciones, bicicleta y sesión, siempre a mano -->
+  <!-- Barra superior: secciones, bicicleta, pulso y sesión, siempre a mano -->
   <header class="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950">
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
       <h1 class="text-sm font-bold tracking-tight text-orange-400">Keiser M3i</h1>
@@ -134,12 +181,33 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
           v-if="mode !== 'simulator'"
           class="btn border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
           :disabled="mode === 'connecting' || isRecording"
-          @click="bike.startSimulator"
+          @click="startSimulator"
         >
           Simulador
         </button>
         <button v-if="isLive" class="btn border border-zinc-700 text-zinc-300 hover:bg-zinc-800" @click="disconnect">
           {{ mode === 'simulator' ? 'Detener simulador' : 'Desconectar' }}
+        </button>
+        <button
+          v-if="hrMode === 'idle'"
+          class="btn border border-rose-500/50 text-rose-300 hover:bg-rose-500/10"
+          :disabled="!isBluetoothSupported"
+          title="Pulso desde el Apple Watch (con una app como HeartCast) o una banda de pecho Bluetooth"
+          @click="heart.connect"
+        >
+          ♥ Conectar pulso
+        </button>
+        <button
+          v-else
+          class="btn flex items-center gap-1.5 border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          :disabled="hrMode === 'connecting'"
+          :title="`${hrName || 'Sensor de pulso'} · clic para desconectar`"
+          @click="heart.disconnect"
+        >
+          <span class="text-rose-400" :class="sensorBpm !== null && 'animate-pulse'">♥</span>
+          <span class="tabular-nums">{{ hrLabel }}</span>
+          <span v-if="currentZone && sensorBpm !== null" class="font-bold" :class="currentZone.text">Z{{ currentZone.n }}</span>
+          <span class="text-zinc-500">✕</span>
         </button>
         <button
           v-if="!isRecording"
@@ -176,6 +244,16 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
       <button class="shrink-0 text-red-300 hover:text-white" aria-label="Cerrar alerta" @click="error = ''">✕</button>
     </div>
     <div
+      v-if="hrError"
+      role="alert"
+      class="mb-4 flex items-start justify-between gap-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+    >
+      <span>{{ hrError }}</span>
+      <button class="shrink-0 text-red-300 hover:text-white" aria-label="Cerrar alerta" @click="hrError = ''">
+        ✕
+      </button>
+    </div>
+    <div
       v-if="notice"
       class="mb-4 flex items-start justify-between gap-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
     >
@@ -210,7 +288,23 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </div>
       </div>
 
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="metric-sm">
+          <span class="metric-label">Pulso</span>
+          <span class="metric-sm-value text-rose-400">{{ dash(heartRate) }}</span>
+          <span v-if="currentZone" class="mt-1 truncate text-xs font-semibold" :class="currentZone.text">
+            Z{{ currentZone.n }} · {{ currentZone.nombre }}
+          </span>
+          <div class="mt-2 flex gap-0.5" aria-hidden="true">
+            <div
+              v-for="z in ZONES"
+              :key="z.n"
+              class="h-1.5 flex-1 rounded-full"
+              :class="currentZone && z.n <= currentZone.n ? z.bar : 'bg-zinc-800'"
+            ></div>
+          </div>
+          <span class="metric-unit truncate">lpm{{ heartSource ? ` · ${heartSource}` : '' }}</span>
+        </div>
         <div class="metric-sm">
           <span class="metric-label">Resistencia</span>
           <span class="metric-sm-value text-violet-400">{{ dash(gear) }}</span>
@@ -228,6 +322,43 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </div>
       </div>
 
+      <details class="rounded-2xl border border-zinc-800 bg-zinc-900/60 px-5 py-3 text-sm text-zinc-400">
+        <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wider">
+          Zonas de pulso · pulso máximo {{ hrMax }} lpm
+        </summary>
+        <div class="mt-3 flex flex-wrap items-start gap-x-8 gap-y-4">
+          <div class="max-w-sm space-y-2">
+            <label class="flex items-center gap-2 text-zinc-300">
+              Pulso máximo
+              <input
+                :value="hrMax"
+                type="number"
+                min="100"
+                max="230"
+                class="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+                @change="applyHrMax"
+              />
+              lpm
+            </label>
+            <p class="text-xs text-zinc-500">
+              Lo más preciso es el máximo que hayas visto en un esfuerzo a fondo o en una prueba de esfuerzo. Si no lo
+              conoces, una estimación común es 208 − 0,7 × tu edad. Queda guardado en este navegador.
+            </p>
+          </div>
+          <table class="text-xs tabular-nums">
+            <tbody>
+              <tr v-for="z in zoneTable" :key="z.n">
+                <td class="py-0.5 pr-3 font-semibold" :class="z.text">Z{{ z.n }}</td>
+                <td class="py-0.5 pr-4 text-zinc-300">{{ z.nombre }}</td>
+                <td class="py-0.5 text-zinc-400">
+                  {{ z.n === 1 ? `menos de ${z.hi}` : z.hi === null ? `${z.lo} o más` : `${z.lo}–${z.hi - 1}` }} lpm
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
       <div class="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
         <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Sesión actual</h2>
@@ -235,7 +366,10 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
             {{ records.length }} muestras · fuente: {{ sources.join(', ') || '—' }}
           </span>
         </div>
-        <div class="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
+        <div
+          class="grid grid-cols-2 gap-4 text-center sm:grid-cols-4"
+          :class="liveStats.avgHr !== null && 'lg:grid-cols-6'"
+        >
           <div>
             <p class="tabular text-2xl font-bold">{{ liveStats.avgWatts }}</p>
             <p class="text-xs text-zinc-500">W promedio</p>
@@ -252,11 +386,21 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
             <p class="tabular text-2xl font-bold">{{ dash(liveStats.avgGear) }}</p>
             <p class="text-xs text-zinc-500">Marcha promedio</p>
           </div>
+          <template v-if="liveStats.avgHr !== null">
+            <div>
+              <p class="tabular text-2xl font-bold text-rose-400">{{ liveStats.avgHr }}</p>
+              <p class="text-xs text-zinc-500">Pulso promedio</p>
+            </div>
+            <div>
+              <p class="tabular text-2xl font-bold">{{ liveStats.maxHr }}</p>
+              <p class="text-xs text-zinc-500">Pulso máximo</p>
+            </div>
+          </template>
         </div>
         <div class="mt-6">
           <SessionChart v-if="records.length >= 2" :series="liveSeries" />
           <p v-else class="py-10 text-center text-sm text-zinc-500">
-            Inicia una sesión para ver la potencia y la resistencia en el tiempo.
+            Inicia una sesión para ver la potencia, el pulso y la resistencia en el tiempo.
           </p>
         </div>
         <details v-if="rawPacket || (mode === 'bluetooth' && bleStats.packets)" class="mt-3 text-xs text-zinc-500">
@@ -274,7 +418,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
 
     <!-- Rodar -->
     <main v-if="rideOpened" v-show="tab === 'ride'">
-      <VirtualRide :watts="watts" :rpm="rpm" :gear="gear" />
+      <VirtualRide :watts="watts" :rpm="rpm" :gear="gear" :heart-rate="heartRate" />
     </main>
 
     <!-- Historial -->
@@ -304,6 +448,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
               <th class="px-5 py-3 text-right font-medium">W máx.</th>
               <th class="px-5 py-3 text-right font-medium">RPM prom.</th>
               <th class="px-5 py-3 text-right font-medium">Marcha prom.</th>
+              <th class="px-5 py-3 text-right font-medium">Pulso prom.</th>
               <th class="px-5 py-3 text-right font-medium">kcal</th>
               <th class="px-5 py-3 text-right font-medium">km</th>
               <th class="px-5 py-3"></th>
@@ -329,6 +474,10 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
                 {{ dash(s.marchaPromedio) }}
                 <span v-if="s.marchaMax" class="text-xs text-zinc-500">/ {{ s.marchaMax }}</span>
               </td>
+              <td class="px-5 py-3 text-right text-rose-400">
+                {{ dash(s.pulsoPromedio) }}
+                <span v-if="s.pulsoMax" class="text-xs text-zinc-500">/ {{ s.pulsoMax }}</span>
+              </td>
               <td class="px-5 py-3 text-right">{{ dash(s.calorias) }}</td>
               <td class="px-5 py-3 text-right">{{ fmtKm(s.distanciaKm) }}</td>
               <td class="px-5 py-3 text-right">
@@ -342,7 +491,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
               </td>
             </tr>
             <tr v-if="expandedId === s.id">
-              <td colspan="9" class="bg-zinc-950/40 px-5 py-5">
+              <td colspan="10" class="bg-zinc-950/40 px-5 py-5">
                 <p v-if="s.duracionSeg - s.muestras > 60" class="mb-4 text-xs text-zinc-400">
                   Tiempo, km y kcal son los de la consola. El gráfico y los promedios cubren solo los
                   {{ formatDuration(s.muestras) }} que se grabaron.

@@ -9,6 +9,7 @@ import {
   saveVideoSync,
   sessionVideo,
 } from '../routes/videoStore'
+import { zoneFor } from '../heartZones'
 
 /**
  * Video real de la ruta, sincronizado con la simulación de RideScene: la velocidad de reproducción
@@ -22,6 +23,7 @@ const props = defineProps({
   rpm: { type: Number, default: 0 },
   gear: { type: Number, default: null },
   grade: { type: Number, default: 0 },
+  heartRate: { type: Number, default: null },
 })
 
 const MIN_RATE = 0.0625 // límite inferior de Chrome
@@ -39,6 +41,7 @@ const ready = ref(false)
 const error = ref('')
 const shownRate = ref(0)
 const duration = ref(0)
+const hrZone = computed(() => zoneFor(props.heartRate))
 const sync = reactive(loadVideoSync(props.route.id))
 watch(sync, () => saveVideoSync(props.route.id, sync))
 
@@ -229,6 +232,10 @@ onBeforeUnmount(() => {
           <div class="chip"><strong>{{ watts }}</strong> W</div>
           <div class="chip"><strong>{{ rpm }}</strong> rpm</div>
           <div v-if="gear !== null" class="chip">marcha <strong>{{ gear }}</strong></div>
+          <div v-if="hrZone" class="chip">
+            <span class="text-rose-400">♥</span> <strong>{{ heartRate }}</strong> lpm
+            <strong :class="hrZone.text">Z{{ hrZone.n }}</strong>
+          </div>
           <div class="chip">
             <strong>{{ grade > 0 ? '▲' : grade < 0 ? '▼' : '' }} {{ Math.abs(grade).toFixed(1) }}</strong> %
           </div>

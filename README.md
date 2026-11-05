@@ -2,7 +2,8 @@
 
 Vue 3 (`<script setup>`) + Tailwind CSS v4 + Vite + Three.js. Lee la Keiser M3i por Web Bluetooth,
 graba la sesión a 1 Hz, exporta un `.json`, guarda un historial con gráficos y ofrece rutas
-virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX).
+virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX). Opcionalmente suma el pulso
+del Apple Watch o de una banda de pecho Bluetooth, con zonas de pulso.
 
 **Usar la app sin instalar nada:** https://ffigueroa11.github.io/keiser-dashboard/
 
@@ -48,18 +49,19 @@ Abre http://localhost:5173. No sirve abrir `index.html` con doble clic: Web Blue
 4. Activa los flags de Chrome indicados arriba.
 
 Lo que guarda el navegador **no se traspasa** entre equipos: historial, mejores tiempos por ruta,
-rutas GPX importadas (vuelve a importar tus `.gpx`), clave de MapTiler/Esri y ajustes. Usa
-siempre el mismo puerto (5173) para no perder lo guardado.
+rutas GPX importadas (vuelve a importar tus `.gpx`), clave de MapTiler/Esri, pulso máximo y
+ajustes. Usa siempre el mismo puerto (5173) para no perder lo guardado.
 
 ## Uso
 
 - **Conectar Bicicleta**: pedalea para despertar la consola y elige "M3". La Keiser M3i no acepta
   conexiones: la app lee sus anuncios BLE (potencia, cadencia, marcha, tiempo, calorías, distancia).
-- **Simulador**: datos de prueba sin Bluetooth.
+- **Conectar pulso**: ver [Pulso con Apple Watch](#pulso-con-apple-watch).
+- **Simulador**: datos de prueba sin Bluetooth (incluye un pulso simulado si no hay sensor conectado).
 - **Grabar sesión / Finalizar**: descarga `sesion-keiser-YYYYMMDD-HHMM.json` y guarda el resumen
-  en **Historial** (con gráfico de potencia y resistencia, y tiempo por marcha). Tiempo, calorías y
-  distancia son los que marca la consola, aunque empieces a grabar tarde o reconectes; los promedios
-  y el gráfico cubren solo lo grabado.
+  en **Historial** (con gráfico de potencia, pulso y resistencia, tiempo por zona de pulso y por
+  marcha). Tiempo, calorías y distancia son los que marca la consola, aunque empieces a grabar
+  tarde o reconectes; los promedios y el gráfico cubren solo lo grabado.
 - **Historial → Importar sesiones**: carga uno o varios `.json` exportados, por ejemplo en otro
   equipo. Si la sesión ya estaba, se actualiza con lo que calcula el archivo.
 - **Rodar → Rutas y paseo libre**: paseo libre (la marcha fija la pendiente) o rutas con perfil de elevación;
@@ -67,6 +69,33 @@ siempre el mismo puerto (5173) para no perder lo guardado.
   - **Real · Sentinel-2**: gratis, resolución ~10 m.
   - **Real · MapTiler / Esri**: imagen nítida (~1 m) cerca del camino, cargada por etapas;
     requiere tu API key (en MapTiler, restringida a `localhost` y `ffigueroa11.github.io`).
+
+## Pulso con Apple Watch
+
+El Apple Watch no se anuncia por sí solo como sensor de pulso Bluetooth. Para eso se usa una app
+gratuita que lo transmite con el perfil estándar *Heart Rate* (el mismo de las bandas de pecho),
+por ejemplo **HeartCast**, **HR Broadcast**, **HeartBLE** o **Echo** (App Store).
+
+1. Instala la app en el iPhone y el Apple Watch, ábrela e inicia el entrenamiento en el reloj.
+   Según la app, el sensor aparece con el nombre del reloj o del iPhone; en las que retransmiten
+   desde el iPhone, deja la app abierta en el teléfono.
+2. En la app pulsa **♥ Conectar pulso** y elige el sensor en el diálogo del navegador. Puede estar
+   conectado a la vez que la bicicleta.
+3. El pulso aparece en **Datos en vivo** y en **Rodar** (rutas, paseo libre y videos), se graba en
+   cada muestra (`pulso`, en lpm) y el resumen guarda pulso promedio y máximo. Si la conexión se
+   corta, la app reintenta unas veces sola.
+
+También sirve cualquier banda de pecho Bluetooth (Polar, Garmin, Wahoo…). Si no hay sensor
+conectado pero la consola Keiser informa pulso en sus anuncios, se usa ese.
+
+### Zonas de pulso
+
+Cinco zonas como porcentaje de tu pulso máximo: Z1 Recuperación (< 60 %), Z2 Resistencia
+(60–70 %), Z3 Tempo (70–80 %), Z4 Umbral (80–90 %) y Z5 Máximo (≥ 90 %). Configura tu pulso máximo
+en **Datos en vivo → Zonas de pulso** (por defecto 190 lpm). La zona actual se ve en vivo, en la
+barra superior y mientras ruedas; el gráfico de cada sesión colorea las zonas y muestra el tiempo
+en cada una. Ese tiempo se calcula con el pulso máximo configurado en ese momento, así que al
+cambiarlo se recalcula también en las sesiones anteriores.
 
 ## Videos de YouTube
 
@@ -107,6 +136,8 @@ ffmpeg -i entrada.mp4 -c:v libx264 -crf 20 -g 30 -an salida.mp4
 ## Código
 
 - `src/composables/useBike.js` — Bluetooth (anuncios Keiser y servicios GATT) y simulador.
+- `src/composables/useHeartRate.js` — pulso por Bluetooth (Apple Watch vía app de transmisión o banda de pecho).
+- `src/heartZones.js` — zonas de pulso, pulso máximo configurable y tiempo por zona.
 - `src/composables/useSession.js` — grabación, exportación e historial.
 - `src/routes/routes.js` — rutas incluidas, importación GPX y resultados por ruta.
 - `src/components/RideScene.vue` — simulación física y vista 2D.
