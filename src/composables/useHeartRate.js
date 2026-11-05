@@ -1,4 +1,5 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
+import { createPulseFilter } from '../heartZones'
 
 // Servicio estándar Bluetooth SIG "Heart Rate". Lo exponen las bandas de pecho y también el
 // Apple Watch a través de apps como HeartCast, HR Broadcast, HeartBLE o Echo, que lo anuncian
@@ -66,12 +67,13 @@ export function useHeartRate() {
   let simTimer = null
   let lastDataAt = 0
   let stopping = false
+  let pulseFilter = createPulseFilter()
 
   function onMeasurement(event) {
     const d = parseHeartRate(event.target.value)
     lastDataAt = Date.now()
     contact.value = d.contact
-    bpm.value = d.contact === false || d.bpm === 0 ? null : d.bpm
+    bpm.value = d.contact === false || d.bpm === 0 ? null : pulseFilter.next(d.bpm)
   }
 
   function cleanupCharacteristic() {
@@ -133,6 +135,7 @@ export function useHeartRate() {
     }
     disconnect()
     stopping = false
+    pulseFilter = createPulseFilter()
     mode.value = 'connecting'
     try {
       device = await navigator.bluetooth.requestDevice({

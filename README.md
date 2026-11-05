@@ -83,7 +83,12 @@ por ejemplo **HeartCast**, **HR Broadcast**, **HeartBLE** o **Echo** (App Store)
    conectado a la vez que la bicicleta.
 3. El pulso aparece en **Datos en vivo** y en **Rodar** (rutas, paseo libre y videos), se graba en
    cada muestra (`pulso`, en lpm) y el resumen guarda pulso promedio y máximo. Si la conexión se
-   corta, la app reintenta unas veces sola.
+   corta, la app reintenta unas veces sola. Un salto de 25 lpm o más se ignora hasta que otra
+   lectura lo confirme, también al importar una sesión.
+
+Con el sensor conectado, Windows puede recibir los datos de la bicicleta cada varios segundos: se
+midieron pausas de 12 a 25 s. La app mantiene el último valor y solo marca que no hay señal, y pone
+potencia y cadencia en 0, tras 30 s sin datos. Los totales de la consola no se afectan.
 
 También sirve cualquier banda de pecho Bluetooth (Polar, Garmin, Wahoo…). Si no hay sensor
 conectado pero la consola Keiser informa pulso en sus anuncios, se usa ese.

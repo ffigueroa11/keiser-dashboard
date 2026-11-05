@@ -1,4 +1,5 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
+import { createPulseFilter } from '../heartZones'
 
 const STORAGE_KEY = 'keiser.sessions'
 const SAMPLE_MS = 1000
@@ -138,6 +139,12 @@ function buildSummary(data, startMs, wallSeconds, fileName) {
   }
 }
 
+// Los archivos grabados antes del filtro pueden traer picos del sensor de pulso.
+function withoutPulseSpikes(data) {
+  const filter = createPulseFilter()
+  return data.map((r) => (r.pulso === undefined ? r : { ...r, pulso: filter.next(r.pulso) }))
+}
+
 const isSessionData = (data) =>
   Array.isArray(data) &&
   data.length > 0 &&
@@ -229,7 +236,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
       }
       const startMs = Date.parse(data[0].timestamp)
       const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - startMs) / 1000) + 1
-      const summary = buildSummary(data, startMs, wallSeconds, file.name)
+      const summary = buildSummary(withoutPulseSpikes(data), startMs, wallSeconds, file.name)
       // Al grabar, la fecha es la de inicio y la primera muestra llega un segundo después.
       const i = list.findIndex((s) => Math.abs(Date.parse(s.fecha) - startMs) < 5000)
       if (i >= 0) {

@@ -79,8 +79,9 @@ watch(mode, (m) => {
   if (m !== 'simulator' && hrMode.value === 'simulator') heart.disconnect()
 })
 
-// Con la Keiser (anuncios BLE) son normales los huecos de hasta ~6 s: solo se avisa pasado ese margen.
-const signalLost = computed(() => mode.value === 'bluetooth' && bleStats.lastPacketAt > 0 && bleStats.silentSec >= 8)
+// Con la Keiser (anuncios BLE) son normales huecos de hasta ~25 s con un sensor de pulso conectado:
+// solo se avisa pasado ese margen.
+const signalLost = computed(() => mode.value === 'bluetooth' && bleStats.lastPacketAt > 0 && bleStats.silentSec >= 30)
 
 const statusLabel = computed(() => {
   if (signalLost.value) return `${deviceName.value} · sin señal hace ${bleStats.silentSec} s`

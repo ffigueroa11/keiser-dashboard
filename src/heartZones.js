@@ -28,6 +28,30 @@ function load() {
   }
 }
 
+const PULSE_JUMP_LPM = 25
+
+/**
+ * Filtro de picos del sensor de pulso (en una sesión real: 118 → 225 → 119). Un salto grande se
+ * ignora hasta que una segunda lectura lo confirme: así un cambio real solo se atrasa una lectura.
+ * next(bpm) devuelve el pulso que se debe usar.
+ */
+export function createPulseFilter() {
+  let last = null
+  let pending = null
+  return {
+    next(bpm) {
+      const near = (a) => Math.abs(bpm - a) < PULSE_JUMP_LPM
+      if (last === null || near(last) || (pending !== null && near(pending))) {
+        last = bpm
+        pending = null
+      } else {
+        pending = bpm
+      }
+      return last
+    },
+  }
+}
+
 /** Pulso máximo compartido por toda la app. */
 export const hrMax = ref(load())
 watch(hrMax, (v) => {
