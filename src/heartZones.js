@@ -29,17 +29,30 @@ function load() {
 }
 
 const PULSE_JUMP_LPM = 25
+const PULSE_GAP_MS = 10000
+const PULSE_SETTLE_MS = 30000
 
 /**
- * Filtro de picos del sensor de pulso (en una sesión real: 118 → 225 → 119). Un salto grande se
- * ignora hasta que una segunda lectura lo confirme: así un cambio real solo se atrasa una lectura.
- * next(bpm) devuelve el pulso que se debe usar.
+ * Filtro de lecturas falsas del sensor de pulso:
+ * - Picos (en una sesión real: 118 → 225 → 119): un salto grande se ignora hasta que una segunda
+ *   lectura lo confirme, así un cambio real solo se atrasa una lectura.
+ * - Arranque (en una sesión real: 32, 179, 28, 31 con cortes entre medio): al empezar o tras un corte
+ *   de 10 s o más, no se usa el pulso hasta tener 30 s seguidos de lecturas.
+ * next(bpm, atMs) devuelve el pulso que se debe usar, o null mientras se estabiliza.
  */
 export function createPulseFilter() {
   let last = null
   let pending = null
+  let lastAt = null
+  let settleFrom = null
   return {
-    next(bpm) {
+    next(bpm, atMs) {
+      if (lastAt === null || atMs - lastAt >= PULSE_GAP_MS) {
+        last = null
+        pending = null
+        settleFrom = atMs
+      }
+      lastAt = atMs
       const near = (a) => Math.abs(bpm - a) < PULSE_JUMP_LPM
       if (last === null || near(last) || (pending !== null && near(pending))) {
         last = bpm
@@ -47,7 +60,7 @@ export function createPulseFilter() {
       } else {
         pending = bpm
       }
-      return last
+      return atMs - settleFrom >= PULSE_SETTLE_MS ? last : null
     },
   }
 }

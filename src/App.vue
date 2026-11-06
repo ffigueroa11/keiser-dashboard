@@ -40,6 +40,7 @@ const heartSource = computed(() => {
 const hrLabel = computed(() => {
   if (hrMode.value === 'connecting') return 'Conectando pulso…'
   if (hrMode.value === 'reconnecting') return 'Reconectando pulso…'
+  if (heart.settling.value) return 'Estabilizando pulso…'
   return sensorBpm.value !== null ? `${sensorBpm.value} lpm` : 'Sin pulso'
 })
 
@@ -79,8 +80,8 @@ watch(mode, (m) => {
   if (m !== 'simulator' && hrMode.value === 'simulator') heart.disconnect()
 })
 
-// Con la Keiser (anuncios BLE) son normales huecos de hasta ~25 s con un sensor de pulso conectado:
-// solo se avisa pasado ese margen.
+// Con la Keiser (anuncios BLE) son normales huecos de hasta ~14 s, y la escucha se reinicia a los 16 s:
+// solo se avisa cuando eso tampoco la recuperó.
 const signalLost = computed(() => mode.value === 'bluetooth' && bleStats.lastPacketAt > 0 && bleStats.silentSec >= 30)
 
 const statusLabel = computed(() => {

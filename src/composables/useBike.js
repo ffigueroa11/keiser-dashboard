@@ -14,13 +14,14 @@ const KEISER_NAME = /^(M3|Keiser)/i
 
 // Si no llegan datos en este tiempo, se asume que el usuario dejó de pedalear.
 const STALE_MS = 3000
-// Con anuncios BLE, Windows suele recibir un paquete cada ~2 s, pero con un sensor de pulso conectado
-// se midieron huecos normales de 12 a 25 s. La Keiser ya informa 0 rpm al dejar de pedalear: se
-// mantiene el último valor y solo se pone a 0 si la señal se pierde de verdad.
+// Con anuncios BLE, Windows suele recibir un paquete cada ~2 s, con huecos de hasta ~14 s. La Keiser
+// ya informa 0 rpm al dejar de pedalear: se mantiene el último valor y solo se pone a 0 si la señal
+// se pierde de verdad.
 const BROADCAST_STALE_MS = 30000
-// Sin paquetes durante este tiempo se reinicia la escucha de anuncios (ver listenToBroadcast). Debe
-// superar los huecos normales: reiniciar durante uno de ellos corta la recepción sin necesidad.
-const RESTART_AFTER_MS = 30000
+// Sin paquetes durante este tiempo se reinicia la escucha de anuncios (ver listenToBroadcast), porque
+// a veces se detiene por completo. Debe superar los huecos normales: reiniciar durante uno de ellos
+// corta la recepción sin necesidad (con 8 s, las esperas se alargaron a 12-25 s).
+const RESTART_AFTER_MS = 16000
 
 /**
  * Calcula RPM a partir de "Cumulative Crank Revolutions" (uint16) y

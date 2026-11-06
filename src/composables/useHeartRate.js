@@ -57,6 +57,8 @@ export function useHeartRate() {
   const error = ref('')
   // false si el sensor informa que no toca la piel (reloj suelto); null si no lo informa.
   const contact = ref(null)
+  // true mientras llegan lecturas que el filtro aún no da por confiables.
+  const settling = ref(false)
 
   const isBluetoothSupported = typeof navigator !== 'undefined' && !!navigator.bluetooth
   const isActive = computed(() => mode.value !== 'idle')
@@ -73,7 +75,9 @@ export function useHeartRate() {
     const d = parseHeartRate(event.target.value)
     lastDataAt = Date.now()
     contact.value = d.contact
-    bpm.value = d.contact === false || d.bpm === 0 ? null : pulseFilter.next(d.bpm)
+    const valid = d.contact !== false && d.bpm !== 0
+    bpm.value = valid ? pulseFilter.next(d.bpm, lastDataAt) : null
+    settling.value = valid && bpm.value === null
   }
 
   function cleanupCharacteristic() {
@@ -101,13 +105,17 @@ export function useHeartRate() {
   function startStaleWatchdog() {
     clearInterval(staleTimer)
     staleTimer = setInterval(() => {
-      if (mode.value === 'bluetooth' && Date.now() - lastDataAt > STALE_MS) bpm.value = null
+      if (mode.value === 'bluetooth' && Date.now() - lastDataAt > STALE_MS) {
+        bpm.value = null
+        settling.value = false
+      }
     }, 1000)
   }
 
   async function onDisconnected() {
     cleanupCharacteristic()
     bpm.value = null
+    settling.value = false
     if (stopping || !device) return
     mode.value = 'reconnecting'
     for (let i = 0; i < RECONNECT_ATTEMPTS; i++) {
@@ -185,6 +193,7 @@ export function useHeartRate() {
     deviceName.value = ''
     bpm.value = null
     contact.value = null
+    settling.value = false
   }
 
   onBeforeUnmount(disconnect)
@@ -195,6 +204,7 @@ export function useHeartRate() {
     deviceName,
     error,
     contact,
+    settling,
     isActive,
     isBluetoothSupported,
     connect,

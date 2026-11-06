@@ -139,10 +139,15 @@ function buildSummary(data, startMs, wallSeconds, fileName) {
   }
 }
 
-// Los archivos grabados antes del filtro pueden traer picos del sensor de pulso.
-function withoutPulseSpikes(data) {
+// Los archivos grabados antes del filtro pueden traer lecturas falsas del sensor de pulso.
+function withoutFalsePulse(data) {
   const filter = createPulseFilter()
-  return data.map((r) => (r.pulso === undefined ? r : { ...r, pulso: filter.next(r.pulso) }))
+  return data.map((r) => {
+    if (r.pulso === undefined) return r
+    const { pulso, ...rest } = r
+    const clean = filter.next(pulso, Date.parse(r.timestamp))
+    return clean === null ? rest : { ...rest, pulso: clean }
+  })
 }
 
 const isSessionData = (data) =>
@@ -236,7 +241,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
       }
       const startMs = Date.parse(data[0].timestamp)
       const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - startMs) / 1000) + 1
-      const summary = buildSummary(withoutPulseSpikes(data), startMs, wallSeconds, file.name)
+      const summary = buildSummary(withoutFalsePulse(data), startMs, wallSeconds, file.name)
       // Al grabar, la fecha es la de inicio y la primera muestra llega un segundo después.
       const i = list.findIndex((s) => Math.abs(Date.parse(s.fecha) - startMs) < 5000)
       if (i >= 0) {
