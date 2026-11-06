@@ -13,7 +13,9 @@ import VirtualRide from './components/VirtualRide.vue'
 import TrainingPlan from './components/TrainingPlan.vue'
 import ProgressView from './components/ProgressView.vue'
 import WorkoutStrip from './components/WorkoutStrip.vue'
+import AccountPanel from './components/AccountPanel.vue'
 import { connectWorkout, current as currentWorkout } from './training/workout'
+import { cloudConfigured, connectCloud, downloadSessionFromCloud, isSignedIn, scheduleSync } from './cloud/useCloud'
 
 const bike = useBike()
 const {
@@ -131,6 +133,18 @@ async function convertToTcx(event) {
   notice.value = `${parts.join(' · ')}.`
 }
 
+// La nube es opcional: mientras se graba no sincroniza, y al guardar una sesión se sube sola.
+connectCloud({ busy: () => isRecording.value })
+watch(history, scheduleSync)
+watch(isRecording, (recording) => {
+  if (!recording) scheduleSync()
+})
+
+async function downloadFromCloud(s) {
+  const failed = await downloadSessionFromCloud(s)
+  notice.value = failed || `Se descargó ${s.archivo}.`
+}
+
 connectWorkout({
   watts,
   rpm,
@@ -215,7 +229,8 @@ async function importSessions(event) {
 }
 
 function clearHistory() {
-  if (confirm('¿Borrar todo el historial de sesiones guardado en este navegador?')) session.clearHistory()
+  const where = isSignedIn.value ? 'en este navegador, en tu cuenta y en tus otros equipos' : 'en este navegador'
+  if (confirm(`¿Borrar todo el historial de sesiones guardado ${where}?`)) session.clearHistory()
 }
 
 const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
@@ -252,6 +267,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
           <span class="h-2 w-2 rounded-full" :class="statusDot"></span>
           {{ statusLabel }}
         </div>
+        <AccountPanel v-if="cloudConfigured" />
         <button
           v-if="mode !== 'bluetooth'"
           class="btn bg-orange-500 text-zinc-950 hover:bg-orange-400"
@@ -631,6 +647,9 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
                 <ul class="mb-4 list-inside list-disc space-y-1 text-sm text-zinc-200" data-session-analysis>
                   <li v-for="note in analyzeSession(s, history)" :key="note">{{ note }}</li>
                 </ul>
+                <button v-if="isSignedIn" class="btn mb-4 border border-zinc-700 text-zinc-200 hover:bg-zinc-800" @click="downloadFromCloud(s)">
+                  Descargar datos desde la nube
+                </button>
                 <SessionChart v-if="s.serie" :series="s.serie" breakdown />
                 <p v-else class="py-4 text-center text-sm text-zinc-400">
                   Esta sesión se guardó antes de que existiera el gráfico; sus datos completos están en

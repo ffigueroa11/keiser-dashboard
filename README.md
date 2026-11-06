@@ -34,9 +34,26 @@ el commit de la versión abierta.
 
 ## Tus datos
 
-Todo queda en el navegador donde lo usas, y el link y `localhost` guardan por separado. En
-**Progreso → Copia de seguridad** puedes descargar y restaurar historial, plan, intensidades, rutas,
-cintura, peso y ajustes. La copia no incluye tus claves de servicios ni archivos de video.
+Todo queda primero en el navegador donde lo usas, y cada dirección guarda por separado. Grabar nunca
+depende de internet. En **Progreso → Copia de seguridad** puedes descargar y restaurar historial, plan,
+intensidades, rutas, cintura, peso y ajustes. La copia no incluye claves de servicios ni videos.
+
+### Cuenta y nube (opcional)
+
+Con Firebase configurado aparece **Iniciar sesión** (Google o correo). La app sincroniza al terminar
+una sesión, al abrirse, cada 5 minutos y al volver la conexión, pero nunca mientras grabas. Tus datos
+quedan en Firestore bajo `users/{uid}`, y `firestore.rules` impide que otro usuario los lea. Las claves
+de servicios no se suben. Si dos equipos cambian lo mismo, sesiones, plan, cintura y rutas se juntan; en
+el resto gana el equipo que sincroniza. Borrar una sesión la borra también de la cuenta.
+
+Para configurarlo:
+
+1. Crea un proyecto en [console.firebase.google.com](https://console.firebase.google.com).
+2. **Authentication**: activa Google y correo/contraseña, y agrega tu dominio de Vercel en
+   *Settings → Authorized domains*.
+3. **Firestore Database**: créala y publica el contenido de `firestore.rules` en la pestaña *Reglas*.
+4. Registra una app web y copia sus valores a las variables de `.env.example`, en Vercel
+   (*Settings → Environment Variables*) o en `.env.local` para desarrollo.
 
 Las claves de MapTiler, Esri y YouTube quedan en el navegador, sin cifrar. Restríngelas a
 `localhost` y `ffigueroa11.github.io`, y ten presente que otras páginas publicadas bajo ese mismo

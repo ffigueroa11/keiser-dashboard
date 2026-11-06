@@ -2,6 +2,7 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import { createPulseFilter } from '../heartZones'
 import { bestEfforts } from '../sessions/analysis'
 import { createTicker } from '../utils/ticker'
+import { queueSamples } from '../cloud/outbox'
 
 const STORAGE_KEY = 'keiser.sessions'
 // Sesión en curso, para recuperarla si la página se cierra o se cuelga antes de Finalizar.
@@ -221,9 +222,9 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     const fileName = fileNameFor(new Date(saved.startedAt))
     downloadJson(data, fileName)
     const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - saved.startedAt) / 1000)
-    history.value = [buildSummary(data, saved.startedAt, wallSeconds, fileName), ...history.value].sort(
-      (a, b) => Date.parse(b.fecha) - Date.parse(a.fecha),
-    )
+    const summary = buildSummary(data, saved.startedAt, wallSeconds, fileName)
+    queueSamples(summary.id, data)
+    history.value = [summary, ...history.value].sort((a, b) => Date.parse(b.fecha) - Date.parse(a.fecha))
     notice.value = saveHistory(history.value)
       ? `Sesión recuperada y exportada como ${fileName}.`
       : `Se exportó ${fileName}, pero no se pudo guardar el resumen en localStorage.`
@@ -287,6 +288,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
 
     const wallSeconds = Math.round((Date.now() - startedAt.value) / 1000)
     const summary = buildSummary(data, startedAt.value, wallSeconds, fileName)
+    queueSamples(summary.id, data)
 
     history.value = [summary, ...history.value]
     notice.value = saveHistory(history.value)
@@ -314,7 +316,9 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
       }
       const startMs = Date.parse(data[0].timestamp)
       const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - startMs) / 1000) + 1
-      const summary = buildSummary(withoutFalsePulse(data), startMs, wallSeconds, file.name)
+      const clean = withoutFalsePulse(data)
+      const summary = buildSummary(clean, startMs, wallSeconds, file.name)
+      queueSamples(summary.id, clean)
       // Al grabar, la fecha es la de inicio y la primera muestra llega un segundo después.
       const i = list.findIndex((s) => Math.abs(Date.parse(s.fecha) - startMs) < 5000)
       if (i >= 0) {
