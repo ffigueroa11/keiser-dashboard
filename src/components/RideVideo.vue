@@ -10,6 +10,8 @@ import {
   sessionVideo,
 } from '../routes/videoStore'
 import { zoneFor } from '../heartZones'
+import { useIsFullscreen } from '../composables/useIsFullscreen'
+import WorkoutStrip from './WorkoutStrip.vue'
 
 /**
  * Video real de la ruta, sincronizado con la simulación de RideScene: la velocidad de reproducción
@@ -32,6 +34,7 @@ const SEEK_AFTER_S = 2 // desfase que ya no se corrige acelerando, sino saltando
 const SEEK_COOLDOWN_MS = 1500
 
 const wrapper = ref(null)
+const isFullscreen = useIsFullscreen(wrapper)
 const videoEl = ref(null)
 const fileInput = ref(null)
 const src = ref('')
@@ -248,6 +251,10 @@ onBeforeUnmount(() => {
         </button>
         <div class="chip absolute bottom-3 left-3" :class="shownRate > 0 && shownRate < 0.3 ? 'text-amber-300' : 'text-zinc-300'">
           video ×{{ shownRate.toFixed(2) }}
+        </div>
+        <!-- En pantalla completa no se ve la barra superior -->
+        <div v-if="isFullscreen" class="absolute inset-x-0 top-12 opacity-90">
+          <WorkoutStrip />
         </div>
       </template>
     </div>

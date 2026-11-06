@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { updateWebVideo } from '../routes/webVideos'
 import { zoneFor } from '../heartZones'
+import { useIsFullscreen } from '../composables/useIsFullscreen'
+import WorkoutStrip from './WorkoutStrip.vue'
 
 /**
  * Video de YouTube sincronizado con la simulación de RideScene. Usa el reproductor oficial: nada se
@@ -27,6 +29,7 @@ const PLAYING = 1
 const BUFFERING = 3
 
 const wrapper = ref(null)
+const isFullscreen = useIsFullscreen(wrapper)
 const host = ref(null)
 const ready = ref(false)
 const error = ref('')
@@ -203,6 +206,8 @@ onBeforeUnmount(() => {
           <button class="chip hover:bg-zinc-700" @click="toggleFullscreen">Pantalla completa</button>
         </div>
       </div>
+      <!-- En pantalla completa no se ve la barra superior -->
+      <WorkoutStrip v-if="isFullscreen" />
     </div>
 
     <p

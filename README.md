@@ -70,6 +70,22 @@ ajustes. Usa siempre el mismo puerto (5173) para no perder lo guardado.
   - **Real · MapTiler / Esri**: imagen nítida (~1 m) cerca del camino, cargada por etapas;
     requiere tu API key (en MapTiler, restringida a `localhost` y `ffigueroa11.github.io`).
 
+## Plan de entrenamiento
+
+La pestaña **Plan** trae un plan de 12 semanas con 42 sesiones guiadas. Al pulsar **Empezar**, una
+franja en la barra superior (y en pantalla completa, en los videos) muestra el bloque actual, el
+tiempo restante, la potencia y cadencia objetivo, y si conviene subir o bajar de marcha.
+
+- El tiempo solo corre mientras pedaleas. Se puede saltar un bloque o detener el entrenamiento.
+- Si no estabas grabando, la grabación empieza con el entrenamiento y se guarda al terminar.
+- Al completar la sesión se marca como hecha, con potencia, cadencia y el porcentaje de tiempo en
+  objetivo. Una sesión hecha sin guía se puede marcar a mano.
+- Las intensidades son provisionales y se pueden ajustar a mano. El **test de 20 min** (semanas 4,
+  8 y 12) calcula un FTP aproximado (95 % del promedio) y sugiere nuevas intensidades, que aplicas
+  si quieres. El avance y las intensidades se guardan en el navegador.
+
+Es una orientación general, no una prescripción médica.
+
 ## Pulso con Apple Watch
 
 El Apple Watch no se anuncia por sí solo como sensor de pulso Bluetooth. Para eso se usa una app
@@ -146,6 +162,8 @@ ffmpeg -i entrada.mp4 -c:v libx264 -crf 20 -g 30 -an salida.mp4
 - `src/composables/useHeartRate.js` — pulso por Bluetooth (Apple Watch vía app de transmisión o banda de pecho).
 - `src/heartZones.js` — zonas de pulso, pulso máximo configurable y tiempo por zona.
 - `src/composables/useSession.js` — grabación, exportación e historial.
+- `src/training/plan.js`, `src/training/workout.js` — plan de 12 semanas y entrenamiento guiado.
+- `src/components/TrainingPlan.vue`, `src/components/WorkoutStrip.vue` — pestaña Plan y franja en vivo.
 - `src/routes/routes.js` — rutas incluidas, importación GPX y resultados por ruta.
 - `src/components/RideScene.vue` — simulación física y vista 2D.
 - `src/components/Ride3D.vue`, `src/ride/realTerrain.js`, `src/ride/pose.js` — vista 3D.

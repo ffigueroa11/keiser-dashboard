@@ -6,6 +6,9 @@ import { useSession, formatDuration, buildSeries } from './composables/useSessio
 import { ZONES, hrMax, isValidHrMax, zoneFor, zoneRanges } from './heartZones'
 import SessionChart from './components/SessionChart.vue'
 import VirtualRide from './components/VirtualRide.vue'
+import TrainingPlan from './components/TrainingPlan.vue'
+import WorkoutStrip from './components/WorkoutStrip.vue'
+import { connectWorkout } from './training/workout'
 
 const bike = useBike()
 const {
@@ -63,6 +66,16 @@ const session = useSession({
   heartRate,
 })
 const { isRecording, elapsedSeconds, liveStats, history, notice, records } = session
+
+connectWorkout({
+  watts,
+  rpm,
+  heartRate,
+  isLive,
+  isRecording,
+  startRecording: session.start,
+  finishRecording: session.finish,
+})
 
 const tab = ref('ride')
 // La rodada sigue viva al mirar otra sección: se monta la primera vez y luego solo se oculta.
@@ -153,6 +166,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         <button
           v-for="t in [
             { id: 'ride', label: 'Rodar' },
+            { id: 'plan', label: 'Plan' },
             { id: 'live', label: 'Datos en vivo' },
             { id: 'history', label: `Historial (${history.length})` },
           ]"
@@ -225,6 +239,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </button>
       </div>
     </div>
+    <WorkoutStrip />
   </header>
 
   <div class="mx-auto max-w-6xl px-4 py-4 sm:px-6">
@@ -416,6 +431,11 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </p>
         </details>
       </div>
+    </main>
+
+    <!-- Plan de entrenamiento -->
+    <main v-if="tab === 'plan'">
+      <TrainingPlan :is-live="isLive" @ride="tab = 'ride'" />
     </main>
 
     <!-- Rodar -->
