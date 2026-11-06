@@ -28,6 +28,11 @@ import {
 
 /** Franja del entrenamiento guiado: bloque actual, objetivos y resumen al terminar. */
 const STATUS_CLASS = { ok: 'text-emerald-300', bajo: 'text-amber-300', alto: 'text-rose-300' }
+const RESULT_TITLE = {
+  completado: '✓ Entrenamiento completado',
+  incompleto: 'Terminado con bloques saltados: no cuenta como hecho',
+  detenido: 'Entrenamiento detenido',
+}
 
 const levelName = computed(() => (block.value?.level ? LEVEL_NAMES[block.value.level] : 'Sin objetivo de potencia'))
 const progress = computed(() => (totalSeconds.value ? Math.min(100, (totalElapsed.value / totalSeconds.value) * 100) : 0))
@@ -49,14 +54,14 @@ function confirmStop() {
     <div class="h-1 bg-zinc-800" aria-hidden="true">
       <div class="h-full bg-orange-500" :style="{ width: `${progress}%` }"></div>
     </div>
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 sm:px-6">
-      <div class="min-w-48 flex-1">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 sm:gap-x-5 sm:gap-y-2 sm:px-6 sm:py-2">
+      <div class="min-w-40 flex-1">
         <p class="truncate text-sm font-semibold">{{ block.label }}</p>
-        <p class="truncate text-xs text-zinc-400">
+        <p class="hidden truncate text-xs text-zinc-400 sm:block">
           Semana {{ current.week }}, sesión {{ current.day }} · {{ levelName }} · {{ nextLabel }}
         </p>
       </div>
-      <p class="text-2xl font-bold tabular-nums" aria-label="Tiempo restante del bloque">{{ formatClock(blockRemaining) }}</p>
+      <p class="text-xl font-bold tabular-nums sm:text-2xl" aria-label="Tiempo restante del bloque">{{ formatClock(blockRemaining) }}</p>
       <p class="text-sm tabular-nums">
         <strong :class="STATUS_CLASS[wattsStatus]">{{ wattsNow }} W</strong>
         <span v-if="wattsTarget" class="text-xs text-zinc-400"> objetivo {{ wattsTarget[0] }}–{{ wattsTarget[1] }}</span>
@@ -78,7 +83,7 @@ function confirmStop() {
   <div v-else-if="result" class="border-t border-zinc-800 bg-zinc-900 text-zinc-100" data-workout-result>
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm sm:px-6">
       <strong :class="result.estado === 'completado' ? 'text-emerald-300' : 'text-amber-300'">
-        {{ result.estado === 'completado' ? '✓ Entrenamiento completado' : 'Entrenamiento detenido' }}
+        {{ RESULT_TITLE[result.estado] }}
       </strong>
       <span class="tabular-nums text-zinc-300">
         {{ formatClock(result.segundos) }} · {{ result.potencia }} W · {{ result.cadencia }} rpm

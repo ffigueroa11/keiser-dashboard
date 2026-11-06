@@ -234,8 +234,14 @@ export function useBike() {
       bleStats.packets++
       rawPacket.value = toHex(dv)
       const d = parseKeiserAdvertisement(dv)
-      // Fuera de tiempo real (resumen post-sesión) no se marca dato: el watchdog lleva a 0.
-      if (!d || !d.realtime) return
+      if (!d) return
+      // Fuera de tiempo real (la consola muestra su resumen) ya no se está pedaleando.
+      if (!d.realtime) {
+        watts.value = 0
+        rpm.value = 0
+        heartRate.value = null
+        return
+      }
       markData()
       watts.value = d.watts
       rpm.value = d.rpm
@@ -371,7 +377,8 @@ export function useBike() {
         'Este navegador no soporta Web Bluetooth. Usa Google Chrome o Microsoft Edge en escritorio (o Chrome en Android).'
       return
     }
-    stopSimulator()
+    // Limpia también los valores del simulador, por si la conexión se cancela.
+    disconnect()
     mode.value = 'connecting'
 
     try {

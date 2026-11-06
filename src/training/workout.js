@@ -1,6 +1,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { DEFAULT_LEVELS, PLAN_WEEKS, ftpFromTest, levelsFromFtp, sessionSeconds } from './plan'
 import { MIN_RIDE_SAMPLES, WEEK_MINIMUM, mondayOf, weekDays, weekStatus } from './week'
+import { createTicker } from '../utils/ticker'
 
 /**
  * Entrenamiento guiado en curso. Es un estado único de la app: lo controla la pestaña Plan y lo
@@ -11,6 +12,7 @@ const STORAGE_KEY = 'keiser.plan'
 const TICK_MS = 1000
 const MAX_TICK_S = 10 // si el navegador frena la página, no se cuenta más que esto de una vez
 const TEST_MIN_SECONDS = 19.5 * 60
+const MIN_DONE_SHARE = 0.8 // con menos tiempo pedaleado, saltando bloques, no cuenta como hecha
 
 function loadProgress() {
   try {
@@ -85,7 +87,7 @@ export const hint = computed(() => {
   return ''
 })
 
-let timer = 0
+let stopTicker = null
 let lastTick = 0
 let startedRecording = false
 let ending = false
@@ -137,8 +139,9 @@ function accumulate(dt) {
 function moveToNextBlock() {
   blockIndex.value++
   blockElapsed.value = 0
-  if (blockIndex.value >= current.value.blocks.length) end('completado')
-  else beep()
+  if (blockIndex.value >= current.value.blocks.length) {
+    end(stats.seconds >= sessionSeconds(current.value) * MIN_DONE_SHARE ? 'completado' : 'incompleto')
+  } else beep()
 }
 
 function tick() {
@@ -163,7 +166,8 @@ const percent = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) :
 
 function end(state) {
   const session = current.value
-  clearInterval(timer)
+  stopTicker?.()
+  stopTicker = null
   current.value = null
   paused.value = false
   beep()
@@ -236,7 +240,7 @@ export function startWorkout(session) {
   startedRecording = !deps.value.isRecording.value
   if (startedRecording) deps.value.startRecording()
   lastTick = Date.now()
-  timer = setInterval(tick, TICK_MS)
+  stopTicker = createTicker(tick, TICK_MS)
   return true
 }
 
@@ -251,6 +255,7 @@ export function stopWorkout() {
 }
 
 export const dismissResult = () => (result.value = null)
+export const planDates = computed(() => Object.values(completed.value).map((c) => c.fecha))
 
 const now = ref(new Date())
 const isDone = (session) => !!completed.value[session.id]

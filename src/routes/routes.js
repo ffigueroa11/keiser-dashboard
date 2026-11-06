@@ -106,6 +106,9 @@ export function parseGpx(text, fileName = 'Ruta') {
     time: Date.parse(p.querySelector('time')?.textContent ?? ''),
   }))
   if (pts.length < 2) throw new Error('El GPX no tiene puntos de recorrido.')
+  if (pts.some((p) => !Number.isFinite(p.lat) || !Number.isFinite(p.lon))) {
+    throw new Error('El GPX tiene puntos con coordenadas inválidas.')
+  }
   if (pts.some((p) => Number.isNaN(p.ele))) {
     throw new Error('El GPX no trae elevación en sus puntos; expórtalo con altitud (por ejemplo, desde Strava).')
   }

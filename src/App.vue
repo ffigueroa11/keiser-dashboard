@@ -2,13 +2,18 @@
 import { computed, ref, watch } from 'vue'
 import { useBike } from './composables/useBike'
 import { useHeartRate } from './composables/useHeartRate'
-import { useSession, formatDuration, buildSeries } from './composables/useSession'
+import { useSession, formatDuration, buildSeries, isSessionData, withoutFalsePulse } from './composables/useSession'
+import { useWakeLock } from './composables/useWakeLock'
+import { analyzeSession } from './sessions/analysis'
+import { sessionToTcx, tcxFileName } from './sessions/tcx'
+import { downloadText } from './utils/download'
 import { ZONES, hrMax, isValidHrMax, zoneFor, zoneRanges } from './heartZones'
 import SessionChart from './components/SessionChart.vue'
 import VirtualRide from './components/VirtualRide.vue'
 import TrainingPlan from './components/TrainingPlan.vue'
+import ProgressView from './components/ProgressView.vue'
 import WorkoutStrip from './components/WorkoutStrip.vue'
-import { connectWorkout } from './training/workout'
+import { connectWorkout, current as currentWorkout } from './training/workout'
 
 const bike = useBike()
 const {
@@ -64,8 +69,67 @@ const session = useSession({
   calories,
   distanceKm,
   heartRate,
+  signal: bleStats,
+  planSession: computed(() => currentWorkout.value?.id ?? null),
 })
-const { isRecording, elapsedSeconds, liveStats, history, notice, records } = session
+const { isRecording, elapsedSeconds, liveStats, history, notice, records, recoverable } = session
+
+const APP_VERSION = __APP_VERSION__
+
+// Con la bici conectada, la pantalla no se apaga: apagarla frena la página y puede cortar los datos.
+useWakeLock(isLive)
+
+// Aviso si se pedalea sin grabar: en 2 de 3 sesiones reales se empezó a grabar tarde.
+const RECORD_HINT_MS = 20000
+const showRecordHint = ref(false)
+let recordHintDismissed = false
+let recordHintTimer = 0
+watch([() => rpm.value > 0, isRecording], ([pedaling, recording]) => {
+  clearTimeout(recordHintTimer)
+  if (recording || !pedaling) {
+    showRecordHint.value = false
+    return
+  }
+  if (!recordHintDismissed) recordHintTimer = setTimeout(() => (showRecordHint.value = true), RECORD_HINT_MS)
+})
+watch(mode, () => {
+  recordHintDismissed = false
+})
+function dismissRecordHint() {
+  recordHintDismissed = true
+  showRecordHint.value = false
+}
+function startFromHint() {
+  showRecordHint.value = false
+  session.start()
+}
+
+const recoverableLabel = computed(() => {
+  if (!recoverable.value) return ''
+  const when = new Date(recoverable.value.startedAt)
+  return `${formatDate(when)} · ${formatDuration(recoverable.value.records.length)} grabados`
+})
+
+// Convierte archivos de sesión a TCX, para subirlos a Strava o Garmin Connect.
+async function convertToTcx(event) {
+  const failed = []
+  let done = 0
+  for (const file of event.target.files) {
+    try {
+      const data = JSON.parse(await file.text())
+      if (!isSessionData(data)) throw new Error()
+      downloadText(sessionToTcx(withoutFalsePulse(data)), tcxFileName(file.name), 'application/vnd.garmin.tcx+xml')
+      done++
+    } catch {
+      failed.push(file.name)
+    }
+  }
+  event.target.value = ''
+  const parts = []
+  if (done) parts.push(`${done} ${done === 1 ? 'archivo convertido' : 'archivos convertidos'} a TCX`)
+  if (failed.length) parts.push(`no son sesiones válidas: ${failed.join(', ')}`)
+  notice.value = `${parts.join(' · ')}.`
+}
 
 connectWorkout({
   watts,
@@ -159,20 +223,22 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
 </script>
 
 <template>
-  <!-- Barra superior: secciones, bicicleta, pulso y sesión, siempre a mano -->
-  <header class="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950">
+  <!-- Barra superior: secciones, bicicleta, pulso y sesión, siempre a mano. En móvil solo queda fija la franja del entrenamiento. -->
+  <div class="contents sm:sticky sm:top-0 sm:z-20 sm:block">
+  <header class="border-b border-zinc-800 bg-zinc-950">
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
       <h1 class="text-sm font-bold tracking-tight text-orange-400">Keiser M3i</h1>
-      <nav class="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-0.5 text-sm" aria-label="Secciones">
+      <nav class="flex max-w-full gap-0.5 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900 p-0.5 text-sm sm:gap-1" aria-label="Secciones">
         <button
           v-for="t in [
             { id: 'ride', label: 'Rodar' },
             { id: 'plan', label: 'Plan' },
-            { id: 'live', label: 'Datos en vivo' },
+            { id: 'progress', label: 'Progreso' },
+            { id: 'live', label: 'En vivo' },
             { id: 'history', label: `Historial (${history.length})` },
           ]"
           :key="t.id"
-          class="rounded-md px-3 py-1 font-medium transition"
+          class="shrink-0 rounded-md px-2 py-1 font-medium transition sm:px-3"
           :class="tab === t.id ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'"
           :aria-current="tab === t.id ? 'page' : undefined"
           @click="tab = t.id"
@@ -224,7 +290,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
           <span class="text-rose-400" :class="sensorBpm !== null && 'animate-pulse'">♥</span>
           <span class="tabular-nums">{{ hrLabel }}</span>
           <span v-if="currentZone && sensorBpm !== null" class="font-bold" :class="currentZone.text">Z{{ currentZone.n }}</span>
-          <span class="text-zinc-500">✕</span>
+          <span class="text-zinc-400">✕</span>
         </button>
         <button
           v-if="!isRecording"
@@ -240,12 +306,37 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </button>
       </div>
     </div>
-    <WorkoutStrip />
   </header>
+  <div class="sticky top-0 z-20 sm:static">
+    <WorkoutStrip />
+  </div>
+  </div>
 
   <div class="mx-auto max-w-6xl px-4 py-4 sm:px-6">
 
     <!-- Alertas -->
+    <div
+      v-if="recoverable && !isRecording"
+      role="alert"
+      class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+    >
+      <span>Hay una sesión que no se alcanzó a finalizar: {{ recoverableLabel }}.</span>
+      <span class="flex gap-2">
+        <button class="btn bg-amber-400 text-zinc-950 hover:bg-amber-300" @click="session.recoverSession">Recuperar y guardar</button>
+        <button class="btn border border-amber-500/40 text-amber-100 hover:bg-amber-500/10" @click="session.discardRecovery">Descartar</button>
+      </span>
+    </div>
+    <div
+      v-if="showRecordHint && !isRecording"
+      role="status"
+      class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100"
+    >
+      <span>Estás pedaleando sin grabar. Si grabas ahora, el gráfico y los promedios cubrirán desde este momento.</span>
+      <span class="flex gap-2">
+        <button class="btn bg-emerald-500 text-zinc-950 hover:bg-emerald-400" @click="startFromHint">● Grabar sesión</button>
+        <button class="btn border border-sky-500/40 text-sky-100 hover:bg-sky-500/10" @click="dismissRecordHint">Ahora no</button>
+      </span>
+    </div>
     <div
       v-if="!isBluetoothSupported"
       class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
@@ -334,7 +425,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
           <span class="metric-unit">kcal</span>
         </div>
         <div class="metric-sm">
-          <span class="metric-label">Distancia</span>
+          <span class="metric-label">Distancia consola</span>
           <span class="metric-sm-value">{{ fmtKm(distanceKm) }}</span>
           <span class="metric-unit">km</span>
         </div>
@@ -358,7 +449,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
               />
               lpm
             </label>
-            <p class="text-xs text-zinc-500">
+            <p class="text-xs text-zinc-400">
               Lo más preciso es el máximo que hayas visto en un esfuerzo a fondo o en una prueba de esfuerzo. Si no lo
               conoces, una estimación común es 208 − 0,7 × tu edad. Queda guardado en este navegador.
             </p>
@@ -380,7 +471,7 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
       <div class="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
         <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Sesión actual</h2>
-          <span class="text-xs text-zinc-500">
+          <span class="text-xs text-zinc-400">
             {{ records.length }} muestras · fuente: {{ sources.join(', ') || '—' }}
           </span>
         </div>
@@ -390,43 +481,43 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         >
           <div>
             <p class="tabular text-2xl font-bold">{{ liveStats.avgWatts }}</p>
-            <p class="text-xs text-zinc-500">W promedio</p>
+            <p class="text-xs text-zinc-400">W promedio</p>
           </div>
           <div>
             <p class="tabular text-2xl font-bold">{{ liveStats.maxWatts }}</p>
-            <p class="text-xs text-zinc-500">W máximo</p>
+            <p class="text-xs text-zinc-400">W máximo</p>
           </div>
           <div>
             <p class="tabular text-2xl font-bold">{{ liveStats.avgRpm }}</p>
-            <p class="text-xs text-zinc-500">RPM promedio</p>
+            <p class="text-xs text-zinc-400">RPM promedio</p>
           </div>
           <div>
             <p class="tabular text-2xl font-bold">{{ dash(liveStats.avgGear) }}</p>
-            <p class="text-xs text-zinc-500">Marcha promedio</p>
+            <p class="text-xs text-zinc-400">Marcha promedio</p>
           </div>
           <template v-if="liveStats.avgHr !== null">
             <div>
               <p class="tabular text-2xl font-bold text-rose-400">{{ liveStats.avgHr }}</p>
-              <p class="text-xs text-zinc-500">Pulso promedio</p>
+              <p class="text-xs text-zinc-400">Pulso promedio</p>
             </div>
             <div>
               <p class="tabular text-2xl font-bold">{{ liveStats.maxHr }}</p>
-              <p class="text-xs text-zinc-500">Pulso máximo</p>
+              <p class="text-xs text-zinc-400">Pulso máximo</p>
             </div>
           </template>
         </div>
         <div class="mt-6">
           <SessionChart v-if="records.length >= 2" :series="liveSeries" />
-          <p v-else class="py-10 text-center text-sm text-zinc-500">
+          <p v-else class="py-10 text-center text-sm text-zinc-400">
             Inicia una sesión para ver la potencia, el pulso y la resistencia en el tiempo.
           </p>
         </div>
-        <details v-if="rawPacket || (mode === 'bluetooth' && bleStats.packets)" class="mt-3 text-xs text-zinc-500">
+        <details v-if="rawPacket || (mode === 'bluetooth' && bleStats.packets)" class="mt-3 text-xs text-zinc-400">
           <summary class="cursor-pointer">Diagnóstico Bluetooth</summary>
-        <p v-if="rawPacket" class="mt-3 break-all font-mono text-[11px] text-zinc-600">
+        <p v-if="rawPacket" class="mt-3 break-all font-mono text-[11px] text-zinc-400">
           Último anuncio Keiser: {{ rawPacket }}
         </p>
-        <p v-if="mode === 'bluetooth' && bleStats.packets" class="mt-1 text-[11px] text-zinc-500 tabular-nums">
+        <p v-if="mode === 'bluetooth' && bleStats.packets" class="mt-1 text-[11px] text-zinc-400 tabular-nums">
           Señal: {{ bleStats.packets }} anuncios recibidos · último hace {{ bleStats.silentSec ?? 0 }} s ·
           reinicios de escucha: {{ bleStats.restarts }}
         </p>
@@ -439,6 +530,11 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
       <TrainingPlan :is-live="isLive" @ride="tab = 'ride'" />
     </main>
 
+    <!-- Progreso -->
+    <main v-if="tab === 'progress'">
+      <ProgressView :history="history" />
+    </main>
+
     <!-- Rodar -->
     <main v-if="rideOpened" v-show="tab === 'ride'">
       <VirtualRide :watts="watts" :rpm="rpm" :gear="gear" :heart-rate="heartRate" />
@@ -446,24 +542,31 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
 
     <!-- Historial -->
     <section v-if="tab === 'history'" class="rounded-2xl border border-zinc-800 bg-zinc-900/60">
-      <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-5 py-4">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Sesiones anteriores</h2>
-        <div class="flex items-center gap-4">
-          <button v-if="history.length" class="text-xs text-zinc-500 hover:text-red-400" @click="clearHistory">
+        <div class="flex flex-wrap items-center gap-3">
+          <button v-if="history.length" class="text-xs text-zinc-400 hover:text-red-400" @click="clearHistory">
             Borrar historial
           </button>
           <label class="btn cursor-pointer bg-zinc-800 text-zinc-100 hover:bg-zinc-700 focus-within:ring-2 focus-within:ring-sky-400">
             Importar sesiones
-            <input type="file" accept=".json,application/json" multiple class="sr-only" @change="importSessions" />
+            <input type="file" accept=".json,application/json" multiple class="sr-only" data-import-input @change="importSessions" />
+          </label>
+          <label
+            class="btn cursor-pointer border border-zinc-700 text-zinc-200 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-sky-400"
+            title="Elige tus archivos sesion-keiser-….json. El .tcx se sube a mano en Strava o Garmin Connect."
+          >
+            Convertir a TCX
+            <input type="file" accept=".json,application/json" multiple class="sr-only" data-tcx-input @change="convertToTcx" />
           </label>
         </div>
       </div>
-      <p v-if="!history.length" class="px-5 py-10 text-center text-sm text-zinc-500">
+      <p v-if="!history.length" class="px-5 py-10 text-center text-sm text-zinc-400">
         Aún no hay sesiones guardadas. Finaliza una sesión o importa tus archivos sesion-keiser-….json.
       </p>
       <div v-else class="overflow-x-auto">
         <table class="tabular w-full text-sm">
-          <thead class="text-left text-xs uppercase tracking-wider text-zinc-500">
+          <thead class="text-left text-xs uppercase tracking-wider text-zinc-400">
             <tr>
               <th class="px-5 py-3 font-medium">Fecha</th>
               <th class="px-5 py-3 font-medium">Duración</th>
@@ -481,13 +584,19 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
             <tr
               class="cursor-pointer hover:bg-zinc-800/40"
               :class="expandedId === s.id && 'bg-zinc-800/30'"
-              :aria-expanded="expandedId === s.id"
               @click="toggleRow(s.id)"
             >
               <td class="whitespace-nowrap px-5 py-3">
-                <span class="mr-2 inline-block w-3 text-zinc-500">{{ expandedId === s.id ? '▾' : '▸' }}</span>
+                <button
+                  class="mr-2 inline-block w-3 text-zinc-400 hover:text-zinc-200"
+                  :aria-expanded="expandedId === s.id"
+                  :aria-label="`Ver detalle de la sesión del ${formatDate(s.fecha)}`"
+                  @click.stop="toggleRow(s.id)"
+                >
+                  {{ expandedId === s.id ? '▾' : '▸' }}
+                </button>
                 {{ formatDate(s.fecha) }}
-                <span class="block pl-5 text-xs text-zinc-500">{{ s.archivo }}</span>
+                <span class="block pl-5 text-xs text-zinc-400">{{ s.archivo }}</span>
               </td>
               <td class="px-5 py-3">{{ formatDuration(s.duracionSeg) }}</td>
               <td class="px-5 py-3 text-right font-semibold text-orange-400">{{ s.wattsPromedio }}</td>
@@ -495,17 +604,17 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
               <td class="px-5 py-3 text-right text-sky-400">{{ s.rpmPromedio }}</td>
               <td class="px-5 py-3 text-right text-violet-400">
                 {{ dash(s.marchaPromedio) }}
-                <span v-if="s.marchaMax" class="text-xs text-zinc-500">/ {{ s.marchaMax }}</span>
+                <span v-if="s.marchaMax" class="text-xs text-zinc-400">/ {{ s.marchaMax }}</span>
               </td>
               <td class="px-5 py-3 text-right text-rose-400">
                 {{ dash(s.pulsoPromedio) }}
-                <span v-if="s.pulsoMax" class="text-xs text-zinc-500">/ {{ s.pulsoMax }}</span>
+                <span v-if="s.pulsoMax" class="text-xs text-zinc-400">/ {{ s.pulsoMax }}</span>
               </td>
               <td class="px-5 py-3 text-right">{{ dash(s.calorias) }}</td>
               <td class="px-5 py-3 text-right">{{ fmtKm(s.distanciaKm) }}</td>
               <td class="px-5 py-3 text-right">
                 <button
-                  class="text-zinc-600 hover:text-red-400"
+                  class="text-zinc-400 hover:text-red-400"
                   aria-label="Eliminar sesión"
                   @click.stop="session.deleteSession(s.id)"
                 >
@@ -519,8 +628,11 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
                   Tiempo, km y kcal son los de la consola. El gráfico y los promedios cubren solo los
                   {{ formatDuration(s.muestras) }} que se grabaron.
                 </p>
+                <ul class="mb-4 list-inside list-disc space-y-1 text-sm text-zinc-200" data-session-analysis>
+                  <li v-for="note in analyzeSession(s, history)" :key="note">{{ note }}</li>
+                </ul>
                 <SessionChart v-if="s.serie" :series="s.serie" breakdown />
-                <p v-else class="py-4 text-center text-sm text-zinc-500">
+                <p v-else class="py-4 text-center text-sm text-zinc-400">
                   Esta sesión se guardó antes de que existiera el gráfico; sus datos completos están en
                   {{ s.archivo }}.
                 </p>
@@ -530,6 +642,8 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
         </table>
       </div>
     </section>
+
+    <footer class="mt-8 text-center text-xs text-zinc-400">Versión {{ APP_VERSION }}</footer>
   </div>
 </template>
 
@@ -555,6 +669,6 @@ const formatDate = (iso) => dateFmt.format(new Date(iso))
   @apply mt-1 text-3xl font-bold tabular-nums sm:text-4xl;
 }
 .metric-unit {
-  @apply mt-2 text-sm text-zinc-500;
+  @apply mt-2 text-sm text-zinc-400;
 }
 </style>

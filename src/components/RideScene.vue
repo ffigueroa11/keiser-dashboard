@@ -127,10 +127,24 @@ const f = reactive({ v: 0, crank: 0, wheel: 0, distM: 0, e: 0, drops: [], routeT
 let raf = 0
 let last = null
 
-function step(now) {
-  const dt = last === null ? 0 : Math.min(0.1, (now - last) / 1000)
-  last = now
+const SIM_STEP_S = 0.1
+const MAX_CATCH_UP_S = 120
 
+function step(now) {
+  // Con la pestaña oculta no hay cuadros: al volver se recupera ese tiempo en pasos cortos.
+  let elapsed = last === null ? 0 : Math.min(MAX_CATCH_UP_S, (now - last) / 1000)
+  last = now
+  const frameDt = Math.min(SIM_STEP_S, elapsed)
+  while (elapsed > 0) {
+    const dt = Math.min(SIM_STEP_S, elapsed)
+    advance(dt)
+    elapsed -= dt
+  }
+  updateDrops(frameDt)
+  raf = requestAnimationFrame(step)
+}
+
+function advance(dt) {
   const theta = Math.atan(gradePct.value / 100)
   const m = settings.weightKg + BIKE_KG
   const power = pedaling.value ? props.watts : 0
@@ -156,9 +170,6 @@ function step(now) {
     }
   }
   f.e += (effort.value - f.e) * Math.min(1, dt * 2) // la postura cambia en ~0.5 s
-  updateDrops(dt)
-
-  raf = requestAnimationFrame(step)
 }
 
 onMounted(() => (raf = requestAnimationFrame(step)))
@@ -253,7 +264,7 @@ function resetDistance() {
         <span class="hud-value text-violet-400">{{ gear ?? '—' }}</span>
       </div>
       <div class="hud">
-        <span class="hud-label">Distancia</span>
+        <span class="hud-label" title="La calcula esta rodada con tu potencia y la pendiente. La de la consola está en Datos en vivo.">Distancia virtual</span>
         <span class="hud-value">
           {{ (f.distM / 1000).toFixed(2) }}
           <small>{{ route ? `/ ${(routeLen / 1000).toFixed(1)} km` : 'km' }}</small>
@@ -484,7 +495,7 @@ function resetDistance() {
             {{ upcoming.grade > 0 ? '▲' : '▼' }} {{ Math.abs(upcoming.grade).toFixed(1) }} %
           </span>
         </span>
-        <span v-else class="text-zinc-500">Pendiente estable el próximo kilómetro</span>
+        <span v-else class="text-zinc-400">Pendiente estable el próximo kilómetro</span>
       </div>
       <RouteProfile :route="route" :dist-m="f.distM" />
     </div>
@@ -528,7 +539,7 @@ function resetDistance() {
         />
         kg
       </label>
-      <button v-if="!route" class="text-zinc-500 hover:text-zinc-200" @click="resetDistance">Reiniciar distancia</button>
+      <button v-if="!route" class="text-zinc-400 hover:text-zinc-200" @click="resetDistance">Reiniciar distancia</button>
       </div>
       <div v-if="route?.origen && view === '3d' && needsKey" class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <label class="flex items-center gap-2">
@@ -544,7 +555,7 @@ function resetDistance() {
         <span>{{ KEY_HELP[settings.landscape] }} La clave queda guardada solo en este navegador.</span>
       </div>
     </details>
-    <p v-if="gear === null && pedaling" class="text-xs text-zinc-500">
+    <p v-if="gear === null && pedaling" class="text-xs text-zinc-400">
       Esta fuente no envía la marcha: el esfuerzo se estima con el torque (potencia ÷ cadencia).
     </p>
   </div>
@@ -563,6 +574,6 @@ function resetDistance() {
   @apply mt-1 text-2xl font-bold tabular-nums text-zinc-100;
 }
 .hud-value small {
-  @apply text-xs font-normal text-zinc-500;
+  @apply text-xs font-normal text-zinc-400;
 }
 </style>

@@ -1,7 +1,13 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { createPulseFilter } from '../heartZones'
+import { bestEfforts } from '../sessions/analysis'
+import { createTicker } from '../utils/ticker'
 
 const STORAGE_KEY = 'keiser.sessions'
+// Sesión en curso, para recuperarla si la página se cierra o se cuelga antes de Finalizar.
+const RECOVERY_KEY = 'keiser.sesionEnCurso'
+const AUTOSAVE_SECONDS = 30
+const MIN_RECOVERABLE_SAMPLES = 10
 const SAMPLE_MS = 1000
 // Puntos máximos de la serie que se guarda en el historial (localStorage es limitado).
 const MAX_SERIES_POINTS = 300
@@ -115,8 +121,10 @@ function computeStats(list) {
   }
 }
 
-function buildSummary(data, startMs, wallSeconds, fileName) {
+export function buildSummary(data, startMs, wallSeconds, fileName) {
   const stats = computeStats(data)
+  const first = data[0]
+  const last = data[data.length - 1]
   // Manda la consola: tiempo, calorías y distancia son los que marcaba, aunque se empezara a grabar
   // tarde o hubiera que reconectar. Se toma su mayor tiempo por si se reinició antes de finalizar.
   const peak = data.reduce((best, r) => ((r.tiempoBici ?? -1) >= (best.tiempoBici ?? -1) ? r : best))
@@ -136,11 +144,17 @@ function buildSummary(data, startMs, wallSeconds, fileName) {
     muestras: data.length,
     archivo: fileName,
     serie: buildSeries(data),
+    mejores: bestEfforts(data),
+    plan: data.find((r) => r.plan)?.plan ?? null,
+    senal:
+      last.paquetes === undefined
+        ? null
+        : { paquetes: last.paquetes - (first.paquetes ?? 0), reinicios: last.reinicios - (first.reinicios ?? 0) },
   }
 }
 
 // Los archivos grabados antes del filtro pueden traer lecturas falsas del sensor de pulso.
-function withoutFalsePulse(data) {
+export function withoutFalsePulse(data) {
   const filter = createPulseFilter()
   return data.map((r) => {
     if (r.pulso === undefined) return r
@@ -150,7 +164,7 @@ function withoutFalsePulse(data) {
   })
 }
 
-const isSessionData = (data) =>
+export const isSessionData = (data) =>
   Array.isArray(data) &&
   data.length > 0 &&
   data.every((r) => Number.isFinite(Date.parse(r?.timestamp)) && Number.isFinite(r.watts) && Number.isFinite(r.rpm))
@@ -158,19 +172,69 @@ const isSessionData = (data) =>
 /**
  * Graba una muestra por segundo a partir de los refs de la bicicleta:
  * { timestamp, watts, rpm } y, si la fuente los envía, tiempoBici, marcha, calorias, distanciaKm
- * y pulso (Apple Watch u otro sensor de pulso, o la consola Keiser).
+ * y pulso (Apple Watch u otro sensor de pulso, o la consola Keiser). También paquetes y reinicios de
+ * la señal de la bici, y la sesión del plan en curso (plan).
  */
-export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm, heartRate }) {
+export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm, heartRate, signal, planSession }) {
   const records = ref([])
   const isRecording = ref(false)
   const startedAt = ref(null)
   const elapsedSeconds = ref(0)
   const history = ref(loadHistory())
   const notice = ref('')
+  const recoverable = ref(loadRecovery())
 
-  let timer = null
+  let stopTicker = null
 
   const liveStats = computed(() => computeStats(records.value))
+
+  function loadRecovery() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(RECOVERY_KEY))
+      return isSessionData(saved?.records) && saved.records.length >= MIN_RECOVERABLE_SAMPLES ? saved : null
+    } catch {
+      return null
+    }
+  }
+
+  function saveRecovery() {
+    try {
+      localStorage.setItem(RECOVERY_KEY, JSON.stringify({ startedAt: startedAt.value, records: records.value }))
+    } catch {
+      /* sin espacio: la sesión sigue en memoria y se guarda igual al finalizar */
+    }
+  }
+
+  function clearRecovery() {
+    try {
+      localStorage.removeItem(RECOVERY_KEY)
+    } catch {
+      /* sin almacenamiento: no hay nada que limpiar */
+    }
+  }
+
+  /** Guarda en el historial y descarga la sesión que quedó sin finalizar. */
+  function recoverSession() {
+    const saved = recoverable.value
+    if (!saved) return
+    const data = saved.records
+    const fileName = fileNameFor(new Date(saved.startedAt))
+    downloadJson(data, fileName)
+    const wallSeconds = Math.round((Date.parse(data[data.length - 1].timestamp) - saved.startedAt) / 1000)
+    history.value = [buildSummary(data, saved.startedAt, wallSeconds, fileName), ...history.value].sort(
+      (a, b) => Date.parse(b.fecha) - Date.parse(a.fecha),
+    )
+    notice.value = saveHistory(history.value)
+      ? `Sesión recuperada y exportada como ${fileName}.`
+      : `Se exportó ${fileName}, pero no se pudo guardar el resumen en localStorage.`
+    recoverable.value = null
+    clearRecovery()
+  }
+
+  function discardRecovery() {
+    recoverable.value = null
+    clearRecovery()
+  }
 
   function sample() {
     const record = {
@@ -183,25 +247,34 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     if (calories.value !== null) record.calorias = calories.value
     if (distanceKm.value !== null) record.distanciaKm = distanceKm.value
     if (heartRate?.value != null) record.pulso = heartRate.value
+    if (signal?.packets) {
+      record.paquetes = signal.packets
+      record.reinicios = signal.restarts
+    }
+    if (planSession?.value) record.plan = planSession.value
     records.value.push(record)
     elapsedSeconds.value = Math.round((Date.now() - startedAt.value) / 1000)
+    if (records.value.length % AUTOSAVE_SECONDS === 0) saveRecovery()
   }
 
   function start() {
     if (isRecording.value) return
-    notice.value = ''
+    // Lo que quedó sin finalizar se guarda antes de que la nueva grabación ocupe su lugar.
+    if (recoverable.value) recoverSession()
+    else notice.value = ''
     records.value = []
     startedAt.value = Date.now()
     elapsedSeconds.value = 0
     isRecording.value = true
-    timer = setInterval(sample, SAMPLE_MS)
+    stopTicker = createTicker(sample, SAMPLE_MS)
   }
 
   function finish() {
     if (!isRecording.value) return null
-    clearInterval(timer)
-    timer = null
+    stopTicker?.()
+    stopTicker = null
     isRecording.value = false
+    clearRecovery()
 
     const data = records.value
     if (!data.length) {
@@ -273,9 +346,10 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     saveHistory([])
   }
 
-  // Evita perder una sesión en curso al cerrar o recargar la pestaña.
+  // Avisa antes de cerrar o recargar la pestaña con una sesión en curso.
   const beforeUnload = (e) => {
     if (isRecording.value) {
+      saveRecovery()
       e.preventDefault()
       e.returnValue = ''
     }
@@ -283,7 +357,7 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
   window.addEventListener('beforeunload', beforeUnload)
 
   onBeforeUnmount(() => {
-    clearInterval(timer)
+    stopTicker?.()
     window.removeEventListener('beforeunload', beforeUnload)
   })
 
@@ -294,6 +368,9 @@ export function useSession({ watts, rpm, bikeSeconds, gear, calories, distanceKm
     liveStats,
     history,
     notice,
+    recoverable,
+    recoverSession,
+    discardRecovery,
     start,
     finish,
     importFiles,

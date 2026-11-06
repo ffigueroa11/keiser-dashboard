@@ -144,16 +144,16 @@ function confirmReset() {
         >
           Empezar
         </button>
-        <span v-if="!props.isLive" class="text-xs text-zinc-500">Conecta la bicicleta o activa el simulador.</span>
+        <span v-if="!props.isLive" class="text-xs text-zinc-400">Conecta la bicicleta o activa el simulador.</span>
       </div>
       <p v-else class="mt-4 text-sm font-semibold text-emerald-300">¡Completaste el plan!</p>
 
-      <p class="mt-3 text-xs text-zinc-500">
+      <p class="mt-3 text-xs text-zinc-400">
         Cada semana trae 5 sesiones para pedalear de lunes a viernes. Si haces menos, prioriza las principales: las
         opcionales son suaves. La semana siguiente del plan se abre al hacer las 5 o, en la semana de calendario siguiente, si
         cumpliste el mínimo. Si no, sigues en la misma.
       </p>
-      <p class="mt-2 text-xs text-zinc-500">
+      <p class="mt-2 text-xs text-zinc-400">
         El tiempo solo corre mientras pedaleas. La grabación empieza con el entrenamiento y, si empezó con él, se guarda al
         terminar. Puedes seguirlo mientras ruedas en una ruta o un video.
       </p>
@@ -165,11 +165,11 @@ function confirmReset() {
 
     <section class="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
       <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Intensidades</h2>
-      <p class="mt-1 text-xs text-zinc-500">{{ ORIGIN[levelsOrigin] }}</p>
+      <p class="mt-1 text-xs text-zinc-400">{{ ORIGIN[levelsOrigin] }}</p>
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
         <div v-for="(name, key) in LEVEL_NAMES" :key="key" class="rounded-xl border border-zinc-800 p-3">
           <p class="text-sm font-semibold text-zinc-100">{{ name }}</p>
-          <p class="text-xs text-zinc-500">{{ LEVEL_FEEL[key] }}</p>
+          <p class="text-xs text-zinc-400">{{ LEVEL_FEEL[key] }}</p>
           <div class="mt-2 flex items-center gap-1.5 text-sm text-zinc-300">
             <input
               :value="levels[key][0]"
@@ -202,7 +202,7 @@ function confirmReset() {
       </div>
       <button
         v-if="levelsOrigin !== 'provisional'"
-        class="mt-2 text-xs text-zinc-500 hover:text-zinc-300"
+        class="mt-2 text-xs text-zinc-400 hover:text-zinc-300"
         @click="restoreLevels"
       >
         Volver a las intensidades provisionales
@@ -212,7 +212,7 @@ function confirmReset() {
     <section v-for="phase in PLAN" :key="phase.n" class="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
       <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400">Fase {{ phase.n }} · {{ phase.name }}</h2>
       <div v-for="week in phase.weeks" :key="week.n" class="mt-4">
-        <p class="mb-2 text-xs text-zinc-500">
+        <p class="mb-2 text-xs text-zinc-400">
           Semana {{ week.n }}<template v-if="week.lighter"> · descarga</template> · hasta {{ weekMinutes(week) }} min
           <strong v-if="currentPlanWeek?.n === week.n" class="text-orange-300"> · semana actual</strong>
         </p>
@@ -221,7 +221,7 @@ function confirmReset() {
             v-for="s in week.sessions"
             :key="s.id"
             class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-zinc-800 px-3 py-2 text-sm"
-            :class="completed[s.id] ? 'text-zinc-500' : 'text-zinc-200'"
+            :class="completed[s.id] ? 'text-zinc-400' : 'text-zinc-200'"
           >
             <button
               class="flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs"
@@ -236,7 +236,7 @@ function confirmReset() {
               Sesión {{ s.day }} · {{ s.title }}
               <span v-if="s.extra" class="ml-1 rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">opcional</span>
             </span>
-            <span class="text-xs tabular-nums text-zinc-500">
+            <span class="text-xs tabular-nums text-zinc-400">
               <template v-if="completed[s.id]?.potencia !== undefined">
                 {{ completed[s.id].potencia }} W · {{ completed[s.id].cadencia }} rpm ·
               </template>
@@ -260,11 +260,11 @@ function confirmReset() {
         Suma 2 días de fuerza de 20–30 min: sentadillas, zancadas, flexiones, remo, peso muerto rumano con carga liviana y
         plancha. Estas sesiones no se guían ni se registran aquí.
       </p>
-      <p class="mt-2 text-xs text-zinc-500">
+      <p class="mt-2 text-xs text-zinc-400">
         Es una orientación general, no una prescripción médica. Detente si sientes dolor en el pecho, mareo o falta de aire
         inusual.
       </p>
-      <button class="mt-3 text-xs text-zinc-500 hover:text-zinc-300" @click="confirmReset">Borrar el avance del plan</button>
+      <button class="mt-3 text-xs text-zinc-400 hover:text-zinc-300" @click="confirmReset">Borrar el avance del plan</button>
     </section>
   </div>
 </template>

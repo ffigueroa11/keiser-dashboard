@@ -7,8 +7,9 @@ import { createPulseFilter } from '../heartZones'
 const HEART_RATE_SERVICE = 0x180d
 const HEART_RATE_MEASUREMENT = 0x2a37
 
-// Sin mediciones durante este tiempo, el pulso se muestra vacío en vez de quedar congelado.
-const STALE_MS = 5000
+// Sin mediciones durante este tiempo, el pulso se muestra vacío en vez de quedar congelado. Debe
+// superar el ritmo del sensor: algunos transmiten cada ~5 s.
+const STALE_MS = 9000
 // El reloj o el iPhone pueden cortar la conexión un momento (pantalla bloqueada, app en segundo
 // plano): se reintenta antes de darla por perdida.
 const RECONNECT_ATTEMPTS = 5

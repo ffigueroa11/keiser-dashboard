@@ -234,7 +234,7 @@ onBeforeUnmount(() => {
       </label>
       <a :href="watchUrl" target="_blank" rel="noopener" class="text-sky-300 hover:text-sky-200">Ver en YouTube</a>
       </div>
-      <p class="mt-2 text-zinc-500">
+      <p class="mt-2 text-zinc-400">
         El video corre siempre a velocidad normal mientras pedaleas. Tu velocidad y tu distancia se calculan aparte, y la
         pendiente la pone tu marcha.
       </p>

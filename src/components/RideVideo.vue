@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
         <template v-if="pendingHandle">
           <p class="text-sm text-zinc-300">Video de esta ruta: <strong>{{ fileName }}</strong></p>
           <button class="video-btn" @click="reopen">Abrir video</button>
-          <button class="text-xs text-zinc-500 hover:text-zinc-300" @click="pick">Elegir otro</button>
+          <button class="text-xs text-zinc-400 hover:text-zinc-300" @click="pick">Elegir otro</button>
         </template>
         <template v-else-if="src && !error">
           <p class="text-sm text-zinc-400">Cargando {{ fileName }}…</p>
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
         s
       </label>
     </div>
-    <p v-if="ready && !route.tiempos" class="text-xs text-zinc-500">
+    <p v-if="ready && !route.tiempos" class="text-xs text-zinc-400">
       Este GPX no trae horas: el video se reparte parejo y puede no calzar en subidas o paradas. Un GPX grabado durante
       la filmación calza mucho mejor.
     </p>

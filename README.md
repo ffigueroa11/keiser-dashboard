@@ -2,8 +2,8 @@
 
 Vue 3 (`<script setup>`) + Tailwind CSS v4 + Vite + Three.js. Lee la Keiser M3i por Web Bluetooth,
 graba la sesión a 1 Hz, exporta un `.json`, guarda un historial con gráficos y ofrece rutas
-virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX). Opcionalmente suma el pulso
-del Apple Watch o de una banda de pecho Bluetooth, con zonas de pulso.
+virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX). Suma el pulso del Apple Watch
+o de una banda de pecho Bluetooth, un plan de entrenamiento guiado y seguimiento del progreso.
 
 **Usar la app sin instalar nada:** https://ffigueroa11.github.io/keiser-dashboard/
 
@@ -14,43 +14,33 @@ del Apple Watch o de una banda de pecho Bluetooth, con zonas de pulso.
   - **Experimental Web Platform features**
   - **Use the new permissions backend for Web Bluetooth**
 - Adaptador Bluetooth 4.0+.
-- Internet solo para el paisaje real (relieve y satélite) en la vista 3D.
+- En un Mac: en *Ajustes del Sistema → Privacidad y seguridad → Bluetooth*, permite el acceso a
+  Chrome. No emparejes la bicicleta: basta con pedalear para despertarla y elegir "M3" en la app.
+- Internet para videos y paisaje real. Una vez visitada, la app también abre sin conexión.
 
-## Ejecutar
-
-### Opción A — proyecto completo (Node.js 18 o superior)
+## Desarrollo (Node.js 22)
 
 ```bash
-cd keiser-dashboard
 npm install
 npm run dev
 ```
 
-Abre la dirección que muestra la terminal (normalmente http://localhost:5173).
-
-### Opción B — solo usarla, sin Node (carpeta `dist` ya compilada)
-
 ```bash
-cd keiser-dashboard/dist
-python3 -m http.server 5173
+npm test
 ```
 
-Abre http://localhost:5173. No sirve abrir `index.html` con doble clic: Web Bluetooth necesita
-`localhost` o `https://`.
+Cada subida a `main` corre las pruebas, compila y publica en GitHub Pages. El pie de la app muestra
+el commit de la versión abierta.
 
-## En un Mac
+## Tus datos
 
-1. Copia la carpeta (o descomprime el .zip) donde quieras, por ejemplo en Descargas.
-2. Elige la opción A (instala Node.js LTS desde nodejs.org) o la B (Python 3 viene en macOS; la
-   primera vez puede pedir instalar las "herramientas de línea de comandos").
-3. En *Ajustes del Sistema → Privacidad y seguridad → Bluetooth*, permite el acceso a Chrome.
-   No emparejes la bicicleta en macOS: basta con pedalear para despertarla y elegir "M3" en el
-   diálogo de la app.
-4. Activa los flags de Chrome indicados arriba.
+Todo queda en el navegador donde lo usas, y el link y `localhost` guardan por separado. En
+**Progreso → Copia de seguridad** puedes descargar y restaurar historial, plan, intensidades, rutas,
+cintura, peso y ajustes. La copia no incluye tus claves de servicios ni archivos de video.
 
-Lo que guarda el navegador **no se traspasa** entre equipos: historial, mejores tiempos por ruta,
-rutas GPX importadas (vuelve a importar tus `.gpx`), clave de MapTiler/Esri, pulso máximo y
-ajustes. Usa siempre el mismo puerto (5173) para no perder lo guardado.
+Las claves de MapTiler, Esri y YouTube quedan en el navegador, sin cifrar. Restríngelas a
+`localhost` y `ffigueroa11.github.io`, y ten presente que otras páginas publicadas bajo ese mismo
+dominio podrían leerlas.
 
 ## Uso
 
@@ -61,9 +51,17 @@ ajustes. Usa siempre el mismo puerto (5173) para no perder lo guardado.
 - **Grabar sesión / Finalizar**: descarga `sesion-keiser-YYYYMMDD-HHMM.json` y guarda el resumen
   en **Historial** (con gráfico de potencia, pulso y resistencia, tiempo por zona de pulso y por
   marcha). Tiempo, calorías y distancia son los que marca la consola, aunque empieces a grabar
-  tarde o reconectes; los promedios y el gráfico cubren solo lo grabado.
+  tarde o reconectes; los promedios y el gráfico cubren solo lo grabado. Mientras grabas, la sesión
+  se guarda cada 30 s: si la página se cierra o se cuelga, al volver puedes recuperarla. Con la bici
+  conectada la pantalla no se apaga, y la app avisa si llevas 20 s pedaleando sin grabar.
 - **Historial → Importar sesiones**: carga uno o varios `.json` exportados, por ejemplo en otro
-  equipo. Si la sesión ya estaba, se actualiza con lo que calcula el archivo.
+  equipo. Si la sesión ya estaba, se actualiza con lo que calcula el archivo. Al abrir una sesión
+  verás un análisis breve: cadencia, marcas nuevas, comparación y estabilidad del pulso.
+- **Historial → Convertir a TCX**: convierte tus `.json` a `.tcx`, para subirlos a mano en Strava o
+  Garmin Connect con potencia, cadencia, pulso y distancia.
+- **Progreso**: resumen semanal, registro de cintura y peso, mejores marcas de 1, 5 y 20 min,
+  cadencia y vatios por latido. Las sesiones importadas antes de esta versión calculan sus marcas de
+  forma aproximada hasta que las vuelvas a importar.
 - **Rodar → Rutas y paseo libre**: paseo libre (la marcha fija la pendiente) o rutas con perfil de elevación;
   importa GPX con **+ Importar GPX** (en **Rodar → Rutas y paseo libre**). En rutas, vista **3D** o **2D**, calidad y paisaje:
   - **Real · Sentinel-2**: gratis, resolución ~10 m.
@@ -86,6 +84,8 @@ al hacer las 5 sesiones o, en la semana de calendario siguiente, si se cumplió 
 - Si no estabas grabando, la grabación empieza con el entrenamiento y se guarda al terminar.
 - Al completar la sesión se marca como hecha, con potencia, cadencia y el porcentaje de tiempo en
   objetivo. Una sesión hecha sin guía se puede marcar a mano.
+- Una sesión cuenta como hecha si pedaleaste al menos el 80 % de su duración. Si saltas más, queda
+  como no hecha.
 - Las intensidades son provisionales y se pueden ajustar a mano. El **test de 20 min** (semanas 4,
   8 y 12) calcula un FTP aproximado (95 % del promedio) y sugiere nuevas intensidades, que aplicas
   si quieres. El avance y las intensidades se guardan en el navegador.
@@ -168,8 +168,11 @@ ffmpeg -i entrada.mp4 -c:v libx264 -crf 20 -g 30 -an salida.mp4
 - `src/composables/useHeartRate.js` — pulso por Bluetooth (Apple Watch vía app de transmisión o banda de pecho).
 - `src/heartZones.js` — zonas de pulso, pulso máximo configurable y tiempo por zona.
 - `src/composables/useSession.js` — grabación, exportación e historial.
-- `src/training/plan.js`, `src/training/workout.js` — plan de 12 semanas y entrenamiento guiado.
-- `src/components/TrainingPlan.vue`, `src/components/WorkoutStrip.vue` — pestaña Plan y franja en vivo.
+- `src/training/` — plan de 12 semanas, entrenamiento guiado y estado de la semana.
+- `src/sessions/` — análisis, TCX, cintura y peso, y copia de seguridad.
+- `src/components/TrainingPlan.vue`, `WorkoutStrip.vue`, `ProgressView.vue`, `TrendChart.vue` — Plan,
+  franja en vivo y Progreso.
+- `tests/` — pruebas automáticas (`npm test`).
 - `src/routes/routes.js` — rutas incluidas, importación GPX y resultados por ruta.
 - `src/components/RideScene.vue` — simulación física y vista 2D.
 - `src/components/Ride3D.vue`, `src/ride/realTerrain.js`, `src/ride/pose.js` — vista 3D.

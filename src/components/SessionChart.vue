@@ -179,7 +179,7 @@ const gearTime = computed(() => {
 
 <template>
   <div ref="root" class="relative select-none">
-    <p v-if="n < 2" class="py-10 text-center text-sm text-zinc-500">Aún no hay datos suficientes para graficar.</p>
+    <p v-if="n < 2" class="py-10 text-center text-sm text-zinc-400">Aún no hay datos suficientes para graficar.</p>
     <template v-else>
       <svg
         :width="width"
@@ -305,7 +305,7 @@ const gearTime = computed(() => {
       <div v-if="zoneTime.length" class="mt-5">
         <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           Tiempo por zona de pulso
-          <span class="font-normal normal-case tracking-normal text-zinc-500">· pulso máximo {{ maxHr }} lpm</span>
+          <span class="font-normal normal-case tracking-normal text-zinc-400">· pulso máximo {{ maxHr }} lpm</span>
         </p>
         <div class="space-y-1">
           <div v-for="z in zoneTime" :key="z.n" class="flex items-center gap-3 text-xs">

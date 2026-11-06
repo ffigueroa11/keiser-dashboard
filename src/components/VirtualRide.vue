@@ -352,7 +352,7 @@ const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyl
               <span class="line-clamp-2 pr-6 text-sm font-semibold text-zinc-100">{{ v.nombre }}</span>
               <span class="text-xs text-zinc-400">{{ tagsLabel(v) || 'Sin etiquetas' }}</span>
               <button
-                class="absolute right-3 top-3 text-zinc-600 hover:text-red-400"
+                class="absolute right-3 top-3 text-zinc-400 hover:text-red-400"
                 aria-label="Quitar video"
                 @click.stop="removeVideo(v)"
               >
@@ -360,7 +360,7 @@ const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyl
               </button>
             </div>
           </div>
-          <p v-else class="mt-3 text-xs text-zinc-500">Los videos que guardes mientras ruedas aparecerán aquí.</p>
+          <p v-else class="mt-3 text-xs text-zinc-400">Los videos que guardes mientras ruedas aparecerán aquí.</p>
         </div>
       </template>
 
@@ -383,12 +383,12 @@ const dateFmt = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyl
             <span class="text-xs text-zinc-400 tabular-nums">
               {{ (routeLength(r) / 1000).toFixed(1) }} km · ▲ {{ ascent(r) }} m
             </span>
-            <span class="text-xs tabular-nums" :class="best(r.id) ? 'text-orange-300' : 'text-zinc-600'">
+            <span class="text-xs tabular-nums" :class="best(r.id) ? 'text-orange-300' : 'text-zinc-400'">
               {{ best(r.id) ? `Mejor tiempo ${fmtTime(best(r.id))}` : 'Sin recorridos aún' }}
             </span>
             <button
               v-if="!r.incluida"
-              class="absolute right-3 top-3 text-zinc-600 hover:text-red-400"
+              class="absolute right-3 top-3 text-zinc-400 hover:text-red-400"
               aria-label="Eliminar ruta importada"
               @click.stop="removeRoute(r)"
             >
