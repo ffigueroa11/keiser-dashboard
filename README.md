@@ -5,7 +5,7 @@ graba la sesión a 1 Hz, exporta un `.json`, guarda un historial con gráficos y
 virtuales en 2D y 3D (con relieve y satélite reales para rutas GPX). Suma el pulso del Apple Watch
 o de una banda de pecho Bluetooth, un plan de entrenamiento guiado y seguimiento del progreso.
 
-**Usar la app sin instalar nada:** https://ffigueroa11.github.io/keiser-dashboard/
+**Usar la app sin instalar nada:** https://keiser-dashboard.vercel.app
 
 ## Requisitos
 
@@ -29,8 +29,8 @@ npm run dev
 npm test
 ```
 
-Cada subida a `main` corre las pruebas, compila y publica en GitHub Pages. El pie de la app muestra
-el commit de la versión abierta.
+Cada subida a `main` corre las pruebas, compila y publica en Vercel. Si una prueba falla, no se
+publica. El pie de la app muestra el commit de la versión abierta.
 
 ## Tus datos
 
@@ -56,8 +56,7 @@ Para configurarlo:
    (*Settings → Environment Variables*) o en `.env.local` para desarrollo.
 
 Las claves de MapTiler, Esri y YouTube quedan en el navegador, sin cifrar. Restríngelas a
-`localhost` y `ffigueroa11.github.io`, y ten presente que otras páginas publicadas bajo ese mismo
-dominio podrían leerlas.
+`localhost` y `keiser-dashboard.vercel.app`.
 
 ## Uso
 
@@ -83,7 +82,7 @@ dominio podrían leerlas.
   importa GPX con **+ Importar GPX** (en **Rodar → Rutas y paseo libre**). En rutas, vista **3D** o **2D**, calidad y paisaje:
   - **Real · Sentinel-2**: gratis, resolución ~10 m.
   - **Real · MapTiler / Esri**: imagen nítida (~1 m) cerca del camino, cargada por etapas;
-    requiere tu API key (en MapTiler, restringida a `localhost` y `ffigueroa11.github.io`).
+    requiere tu API key (en MapTiler, restringida a `localhost` y `keiser-dashboard.vercel.app`).
 
 ## Plan de entrenamiento
 

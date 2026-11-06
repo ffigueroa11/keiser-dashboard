@@ -17,7 +17,7 @@ function appVersion() {
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
-  // Rutas relativas: la misma compilación sirve en GitHub Pages (en una subcarpeta) y en localhost.
+  // Rutas relativas: la misma compilación sirve en cualquier dirección o subcarpeta.
   base: './',
   // Web Bluetooth exige contexto seguro: localhost cumple ese requisito.
   server: { host: 'localhost', port: 5173, open: true },
