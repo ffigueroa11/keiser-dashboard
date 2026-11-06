@@ -2,6 +2,8 @@
  * Plan de 12 semanas para mejorar la condición física. Cada sesión es una lista de bloques:
  * { label, seconds, level, rpm } con level = suave | moderado | fuerte (objetivo de potencia) o
  * null (sin objetivo: aceleraciones y test), y rpm = [mín, máx] o null (cadencia libre).
+ * Cada semana tiene 5 sesiones para pedalear de lunes a viernes: primero las principales y al final
+ * las opcionales (extra: true), suaves y en orden que evita dos días fuertes seguidos.
  */
 
 export const LEVEL_NAMES = { suave: 'Suave', moderado: 'Moderado', fuerte: 'Fuerte' }
@@ -35,6 +37,8 @@ function easy(minutes, rpm) {
     blocks: [warmUp(), block(minutes - 10, 'Suave constante', 'suave', rpm), coolDown()],
   }
 }
+
+const extra = (minutes, rpm) => ({ ...easy(minutes, rpm), extra: true })
 
 function moderate(repMinutes, cool, rpm) {
   const rep = (n) => block(repMinutes, `Moderado ${n} de 2`, 'moderado', rpm)
@@ -75,26 +79,36 @@ const SUAVE_3 = [75, 85]
 const MOD = [70, 85]
 const FUERTE = [75, 90]
 
-const phase2Week = () => [easy(45, SUAVE_2), moderate(10, 7, MOD), easy(45, SUAVE_2), intervals(6, 7, FUERTE)]
-const phase3Week = () => [intervals(8, 5, FUERTE), easy(50, SUAVE_3), moderate(15, 5, MOD), easy(60, SUAVE_3)]
+const phase1Week = (rpm) => [easy(35, rpm), easy(35, rpm), easy(35, rpm), extra(30, rpm), extra(30, rpm)]
+const phase2Week = () => [
+  easy(45, SUAVE_2),
+  moderate(10, 7, MOD),
+  easy(45, SUAVE_2),
+  intervals(6, 7, FUERTE),
+  extra(30, SUAVE_2),
+]
+const phase3Week = () => [
+  intervals(8, 5, FUERTE),
+  easy(50, SUAVE_3),
+  moderate(15, 5, MOD),
+  easy(60, SUAVE_3),
+  extra(30, SUAVE_3),
+]
+// Semana de descarga: menos volumen, y el test después de dos días suaves.
+const lighterWeek = (first, second, rpm) => [easy(first, rpm), easy(second, rpm), test20(), extra(20, rpm), extra(20, rpm)]
 
 const PHASES = [
   {
     name: 'Base y cadencia',
-    weeks: [
-      [easy(35, [65, 70]), easy(35, [65, 70]), easy(35, [65, 70])],
-      [easy(35, [65, 75]), easy(35, [65, 75]), easy(35, [65, 75])],
-      [easy(35, [70, 75]), easy(35, [70, 75]), easy(35, [70, 75])],
-      [easy(20, [65, 75]), easy(20, [65, 75]), test20()],
-    ],
+    weeks: [phase1Week([65, 70]), phase1Week([65, 75]), phase1Week([70, 75]), lighterWeek(20, 20, [65, 75])],
   },
   {
     name: 'Más constancia',
-    weeks: [phase2Week(), phase2Week(), phase2Week(), [easy(35, SUAVE_2), easy(30, SUAVE_2), test20()]],
+    weeks: [phase2Week(), phase2Week(), phase2Week(), lighterWeek(35, 30, SUAVE_2)],
   },
   {
     name: 'Consolidar',
-    weeks: [phase3Week(), phase3Week(), phase3Week(), [easy(45, SUAVE_3), easy(40, SUAVE_3), test20()]],
+    weeks: [phase3Week(), phase3Week(), phase3Week(), lighterWeek(45, 40, SUAVE_3)],
   },
 ]
 
@@ -118,4 +132,6 @@ export const PLAN = (() => {
   }))
 })()
 
-export const ALL_SESSIONS = PLAN.flatMap((phase) => phase.weeks.flatMap((week) => week.sessions))
+export const PLAN_WEEKS = PLAN.flatMap((phase) => phase.weeks)
+export const ALL_SESSIONS = PLAN_WEEKS.flatMap((week) => week.sessions)
+export const MAIN_SESSIONS = ALL_SESSIONS.filter((s) => !s.extra)

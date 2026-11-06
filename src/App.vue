@@ -73,6 +73,7 @@ connectWorkout({
   heartRate,
   isLive,
   isRecording,
+  history,
   startRecording: session.start,
   finishRecording: session.finish,
 })

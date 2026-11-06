@@ -18,6 +18,7 @@ import {
   rpmTarget,
   skipBlock,
   stopWorkout,
+  thisWeekStatus,
   totalElapsed,
   totalSeconds,
   wattsNow,
@@ -52,7 +53,7 @@ function confirmStop() {
       <div class="min-w-48 flex-1">
         <p class="truncate text-sm font-semibold">{{ block.label }}</p>
         <p class="truncate text-xs text-zinc-400">
-          Semana {{ current.week }}, día {{ current.day }} · {{ levelName }} · {{ nextLabel }}
+          Semana {{ current.week }}, sesión {{ current.day }} · {{ levelName }} · {{ nextLabel }}
         </p>
       </div>
       <p class="text-2xl font-bold tabular-nums" aria-label="Tiempo restante del bloque">{{ formatClock(blockRemaining) }}</p>
@@ -88,6 +89,7 @@ function confirmStop() {
       <span v-if="result.testWatts !== null" class="font-semibold text-orange-300">
         Test: {{ result.testWatts }} W. Revisa las intensidades en Plan.
       </span>
+      <span v-if="result.estado === 'completado'" class="font-semibold text-zinc-100">{{ thisWeekStatus.title }}</span>
       <button class="ml-auto text-zinc-400 hover:text-white" aria-label="Cerrar resumen" @click="dismissResult">✕</button>
     </div>
   </div>

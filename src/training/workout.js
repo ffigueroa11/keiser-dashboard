@@ -1,5 +1,6 @@
 import { computed, ref, shallowRef, watch } from 'vue'
-import { ALL_SESSIONS, DEFAULT_LEVELS, ftpFromTest, levelsFromFtp, sessionSeconds } from './plan'
+import { DEFAULT_LEVELS, PLAN_WEEKS, ftpFromTest, levelsFromFtp, sessionSeconds } from './plan'
+import { MIN_RIDE_SAMPLES, WEEK_MINIMUM, mondayOf, weekDays, weekStatus } from './week'
 
 /**
  * Entrenamiento guiado en curso. Es un estado único de la app: lo controla la pestaña Plan y lo
@@ -200,6 +201,7 @@ function end(state) {
 /** Une el entrenamiento a los datos de la bicicleta y a la grabación. Se llama una vez, desde App. */
 export function connectWorkout(dependencies) {
   deps.value = dependencies
+  setInterval(() => (now.value = new Date()), 60000) // la app puede quedar abierta de un día a otro
   // Si la grabación termina por fuera (Finalizar o Desconectar), el entrenamiento termina con ella.
   watch(dependencies.isRecording, (recording) => {
     if (!recording && current.value && !ending) {
@@ -250,7 +252,39 @@ export function stopWorkout() {
 
 export const dismissResult = () => (result.value = null)
 
-export const nextSession = computed(() => ALL_SESSIONS.find((s) => !completed.value[s.id]) ?? null)
+const now = ref(new Date())
+const isDone = (session) => !!completed.value[session.id]
+
+// Días con bici: sesiones del plan y sesiones grabadas de al menos 15 min, aunque sean libres.
+const rideDates = computed(() => [
+  ...Object.values(completed.value).map((c) => c.fecha),
+  ...(deps.value?.history.value ?? []).filter((s) => s.muestras >= MIN_RIDE_SAMPLES).map((s) => s.fecha),
+])
+export const thisWeekDays = computed(() => weekDays(rideDates.value, now.value))
+export const thisWeekCount = computed(() => thisWeekDays.value.filter((d) => d.done).length)
+export const thisWeekStatus = computed(() => weekStatus(thisWeekCount.value))
+
+/**
+ * Semana del plan en curso. Se pasa a la siguiente al hacer sus 5 sesiones o, ya en otra semana de
+ * calendario, si se alcanzó el mínimo. Sin el mínimo, la misma semana del plan continúa.
+ */
+export const currentPlanWeek = computed(() => {
+  const monday = mondayOf(now.value)
+  return (
+    PLAN_WEEKS.find((week) => {
+      const done = week.sessions.filter(isDone)
+      if (done.length === week.sessions.length) return false
+      const lastDone = Math.max(...done.map((s) => Date.parse(completed.value[s.id].fecha)), 0)
+      return !(done.length >= WEEK_MINIMUM && lastDone < monday.getTime())
+    }) ?? null
+  )
+})
+
+/** Primero las sesiones principales de la semana y luego las opcionales. */
+export const nextSession = computed(() => {
+  const sessions = currentPlanWeek.value?.sessions.filter((s) => !isDone(s)) ?? []
+  return sessions.find((s) => !s.extra) ?? sessions[0] ?? null
+})
 
 export function toggleCompleted(session) {
   const next = { ...completed.value }

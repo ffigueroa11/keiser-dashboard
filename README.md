@@ -72,9 +72,15 @@ ajustes. Usa siempre el mismo puerto (5173) para no perder lo guardado.
 
 ## Plan de entrenamiento
 
-La pestaña **Plan** trae un plan de 12 semanas con 42 sesiones guiadas. Al pulsar **Empezar**, una
-franja en la barra superior (y en pantalla completa, en los videos) muestra el bloque actual, el
-tiempo restante, la potencia y cadencia objetivo, y si conviene subir o bajar de marcha.
+La pestaña **Plan** trae un plan de 12 semanas con 5 sesiones semanales para pedalear de lunes a
+viernes: 42 principales y 18 opcionales suaves. Al pulsar **Empezar**, una franja en la barra
+superior (y en pantalla completa, en los videos) muestra el bloque actual, el tiempo restante, la
+potencia y cadencia objetivo, y si conviene subir o bajar de marcha.
+
+El panel **Esta semana** cuenta los días con bici de lunes a domingo: avisa cuántas sesiones faltan
+para el mínimo de 3 días, y felicita al cumplirlo, al superarlo y al completar 5. Cuentan las
+sesiones del plan y cualquier sesión grabada de 15 min o más. La semana siguiente del plan se abre
+al hacer las 5 sesiones o, en la semana de calendario siguiente, si se cumplió el mínimo.
 
 - El tiempo solo corre mientras pedaleas. Se puede saltar un bloque o detener el entrenamiento.
 - Si no estabas grabando, la grabación empieza con el entrenamiento y se guarda al terminar.
