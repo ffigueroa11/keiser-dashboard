@@ -165,6 +165,7 @@ function tick() {
 const percent = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : null)
 
 function end(state) {
+  refreshClock()
   const session = current.value
   stopTicker?.()
   stopTicker = null
@@ -205,7 +206,7 @@ function end(state) {
 /** Une el entrenamiento a los datos de la bicicleta y a la grabación. Se llama una vez, desde App. */
 export function connectWorkout(dependencies) {
   deps.value = dependencies
-  setInterval(() => (now.value = new Date()), 60000) // la app puede quedar abierta de un día a otro
+  setInterval(refreshClock, 60000) // la app puede quedar abierta de un día a otro
   // Si la grabación termina por fuera (Finalizar o Desconectar), el entrenamiento termina con ella.
   watch(dependencies.isRecording, (recording) => {
     if (!recording && current.value && !ending) {
@@ -258,6 +259,10 @@ export const dismissResult = () => (result.value = null)
 export const planDates = computed(() => Object.values(completed.value).map((c) => c.fecha))
 
 const now = ref(new Date())
+/** Fecha usada para la semana en curso. Se refresca con cada cambio y una vez por minuto. */
+export function refreshClock() {
+  now.value = new Date()
+}
 const isDone = (session) => !!completed.value[session.id]
 
 // Días con bici: sesiones del plan y sesiones grabadas de al menos 15 min, aunque sean libres.
@@ -292,6 +297,7 @@ export const nextSession = computed(() => {
 })
 
 export function toggleCompleted(session) {
+  refreshClock()
   const next = { ...completed.value }
   if (next[session.id]) delete next[session.id]
   else next[session.id] = { fecha: new Date().toISOString(), manual: true }

@@ -12,6 +12,7 @@ import {
   nextSession,
   paused,
   result,
+  refreshClock,
   resetPlan,
   skipBlock,
   startWorkout,
@@ -76,6 +77,8 @@ describe('entrenamiento guiado', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 10, 6, 10))
+    // Sin esto, la semana se calcula con la fecha real y las pruebas dependen del día en que corren.
+    refreshClock()
     watts.value = 95
     rpm.value = 68
     isRecording.value = false
