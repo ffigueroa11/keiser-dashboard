@@ -9,3 +9,6 @@ Thumbs.db
 .env.*
 sesion-keiser-*.json
 !.env.example
+
+# Devlog local (Portfolio Hub)
+.devlog/
